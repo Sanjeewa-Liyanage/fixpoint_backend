@@ -4,7 +4,7 @@ class ProfileApi extends ApiResourceBase{
     {
         $this->setRoles([
            
-            "create" => ['admin','owner']
+            "create" => ['admin']
         ]);
     }
     public function create($data){
