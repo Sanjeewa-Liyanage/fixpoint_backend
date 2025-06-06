@@ -20,7 +20,18 @@ return $success;
 
 
 }
-public function read(){}
+public function read(){
+    $conn = DatabaseConnection::getConnection();
+    $sql = "SELECT * FROM roles WHERE role_id = :role_id";
+    $stmt = $conn->prepare($sql);
+    $stmt -> bindParam(":role_id", $this->role_id);
+    $stmt -> execute();
+    $result = $stmt -> fetch(PDO::FETCH_ASSOC);
+    $this->role_name = $result['role_name'];
+    $this->description = $result['description'];
+    return $result['role_id'] !== null; 
+    
+}
 public function update(){}
 public function delete(){}
 

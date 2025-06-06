@@ -44,10 +44,10 @@ class User extends Model{
         // Example: Fetch user from database by $this->id
         return true;
     }
+  
 
     public function update() {
-        // Implement update logic here
-        // Example: Update user in database by $this->id
+       
         return true;
     }
 }
