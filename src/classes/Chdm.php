@@ -36,21 +36,50 @@ class Chdm extends Model{
     return $success;
 }
 
-    public function delete() {
-        // Implement delete logic here
-        // Example: Delete chdm from database by $this->id
-        return true;
-    }
+    // Removed duplicate delete() method to avoid redeclaration error.
 
     public function read() {
+        $conn = DatabaseConnection::getConnection();
+        $sql = "SELECT * FROM chdm WHERE state = 'passed'";
+        $stmt = $conn->prepare($sql);
+        $stmt->execute();
+        $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return $result;
+         // Return all passed chdm records
         // Implement read logic here
         // Example: Fetch chdm from database by $this->id
         return true;
     }
-
+    public function read_failed() {
+        $conn = DatabaseConnection::getConnection();
+        $sql = "SELECT * FROM chdm WHERE state = 'failed'";
+        $stmt = $conn->prepare($sql);
+        $stmt->execute();
+        $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return $result;
+        return true;
+    }
+     public function update_status($status) {
+        $conn = DatabaseConnection::getConnection();
+        $sql = "UPDATE chdm SET state = :state WHERE id = :id";
+        $stmt = $conn->prepare($sql);
+        $stmt->bindParam(':state', $status);
+        $stmt->bindParam(':id', $this->id);
+        $success = $stmt->execute();
+        return $success;
+    }
+    
     public function update() {
         // Implement update logic here
         // Example: Update chdm in database by $this->id
         return true;
+    }
+    public function delete() {
+        $conn = DatabaseConnection::getConnection();
+        $sql = "DELETE FROM chdm WHERE id = :id";
+        $stmt = $conn->prepare($sql);
+        $stmt->bindParam(":id", $this->id);
+        $success = $stmt->execute();
+        return $success;
     }
 }
