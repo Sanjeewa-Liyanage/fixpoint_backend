@@ -29,6 +29,6 @@ class ProfileApi extends ApiResourceBase{
                 'message' => 'Failed to create user',
                 'status' => 'error'
             ];
+            }
         }
     }
-}

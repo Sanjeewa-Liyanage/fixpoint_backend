@@ -36,9 +36,12 @@ class UserApi extends ApiResourceBase{
             $result['password'] = "";
             $result["role"] = $role;
 
+            $token = JwtHandler::generateToken($result);
+
             return [
                 "status" => "success",
                 "message" => "Login successful",
+                "token" => $token,
                 "user" => $result
             ];
         } else {

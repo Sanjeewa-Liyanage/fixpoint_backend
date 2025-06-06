@@ -187,7 +187,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_openapi'])) 
 
 <body>
     <div class="container mt-5 api-tester">
-        <h2>EzMenu Backend : API Tester</h2>
+        <h2>fix_point Backend : API Tester</h2>
         <div class="row">
             <div class="col-md-6">
                 <div class="api-tester">
@@ -214,6 +214,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_openapi'])) 
                         <label for="data">Data:</label>
                         <textarea class="form-control" id="data" rows="5" placeholder="Enter JSON data (if applicable)"></textarea>
                     </div>
+                    <div class="form-group">
+                        <label for="headers">Headers (JSON format):</label>
+                        <textarea class="form-control" id="headers" rows="3">
+                    {
+                        "Authorization": "Bearer YOUR_DEFAULT_TOKEN"
+                    }
+                        </textarea>
+                    </div>
+
+
 
                     <div class="form-group">
                         <button type="button" class="btn btn-primary" onclick="sendRequest()">Send Request</button>
@@ -244,24 +254,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_openapi'])) 
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
     <script>
         function sendRequest() {
-            var url = "/ezmenu-be-php" + $('#url').val();
-            var method = $('#method').val();
-            var data = $('#data').val();
+    var url = "/ezmenu-be-php" + $('#url').val();
+    var method = $('#method').val();
+    var data = $('#data').val();
+    var headers = {};
 
-            $.ajax({
-                url: url,
-                method: method,
-                contentType: 'application/json',
-                data: data,
-                success: function(response) {
-                    $('#response').html(JSON.stringify(response, null, 2));
-                },
-                error: function(xhr, status, error) {
-                    $('#response').html('Error: ' + xhr.responseText);
-                }
-            });
-            generateAxiosCode();
+    try {
+        headers = JSON.parse($('#headers').val() || '{}');
+    } catch (e) {
+        $('#response').html('Invalid header JSON format');
+        return;
+    }
+
+    $.ajax({
+        url: url,
+        method: method,
+        contentType: 'application/json',
+        headers: headers,
+        data: data,
+        success: function(response) {
+            $('#response').html(JSON.stringify(response, null, 2));
+        },
+        error: function(xhr, status, error) {
+            $('#response').html('Error: ' + xhr.responseText);
         }
+    });
+
+    generateAxiosCode();
+}
+
 
         function shareRequest() {
             var url = $('#url').val();
@@ -275,27 +296,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_openapi'])) 
         }
 
         function generateAxiosCode() {
-            var baseUrl = location.origin
-            var url = baseUrl + "/ezmenu-be-php" + $('#url').val();
-            var method = $('#method').val();
-            var data = $('#data').val();
+    var baseUrl = location.origin;
+    var url = baseUrl + "/ezmenu-be-php" + $('#url').val();
+    var method = $('#method').val();
+    var data = $('#data').val();
+    var headers = $('#headers').val();
 
-            var axiosCode = `
-    async function fetchData() {
-        try {
-            const response = await axios.post({
-                url: '${url}',
-                data: ${data},
-            });
-            console.log(response.data);
-        } catch (error) {
-            console.log(error);
-        }
+    var axiosCode = `
+async function fetchData() {
+    try {
+        const response = await axios({
+            url: '${url}',
+            method: '${method.toLowerCase()}',
+            headers: ${headers || '{}'},
+            data: ${data || '{}'},
+        });
+        console.log(response.data);
+    } catch (error) {
+        console.error(error);
     }
-            `;
+}
+    `;
 
-            $('#axiosCode').text(axiosCode);
-        }
+    $('#axiosCode').text(axiosCode);
+}
+
 
         $(document).ready(function() {
             var url = new URL(location.href);
