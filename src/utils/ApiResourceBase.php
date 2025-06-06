@@ -21,4 +21,19 @@ class ApiResourceBase{
         }
         return $missingFields;
     }
+    public function getAuthenticatedUser(){
+        $headers = getallheaders();
+        if(isset($headers["Authorization"])){
+            $authHeader = $headers["Authorization"];
+            if(preg_match('/Bearer\s(\S+)/', $authHeader, $matches)){
+                $token = $matches[1];
+                $decodedToken = JwtHandler::decodeToken($token);
+                if($decodedToken['valid']){
+                    return $decodedToken['data'];
+                } else {
+                    return null; // Invalid token
+                }
+            }
+        }
+    }
 }
