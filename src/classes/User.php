@@ -33,21 +33,50 @@ class User extends Model{
        
     }
 
-    public function delete() {
-        // Implement delete logic here
-        // Example: Delete user from database by $this->id
-        return true;
-    }
+   
 
     public function read() {
-        // Implement read logic here
-        // Example: Fetch user from database by $this->id
-        return true;
+        $conn = DatabaseConnection::getConnection();
+        $sql ="SELECT u.user_id, u.username, u.email, u.phone, u.profile_picture, u.role_id, role.role_name FROM users AS u JOIN roles AS role ON u.role_id = role.role_id WHERE u.user_id = :id";
+        $stmt = $conn->prepare($sql);
+        $stmt->bindParam(':id', $this->id);
+        $stmt->execute();
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        $this->username = $result['username'];
+        $this->email = $result['email'];
+        $this->phone = $result['phone'];
+        $this->profile_picture = $result['profile_picture'];
+        $this->role_id = $result['role_id'];
+        return $result['email'] !== null; 
     }
-  
 
+
+  
+    public function get_user_by_email(){
+        $conn = DatabaseConnection::getConnection();
+        $sql = "SELECT * FROM users WHERE email = :email";
+        $stmt = $conn->prepare($sql);
+        $stmt->bindParam(':email', $this->email);
+        $stmt->execute();
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        $this->id = $result['user_id'];
+        $this->username = $result['username'];
+        $this->phone = $result['phone'];
+        $this->profile_picture = $result['profile_picture'];
+        $this->role_id = $result['role_id'];
+        return $result['email'] !== null;
+        
+    }
+
+    
+    
     public function update() {
        
+        return true;
+    }
+     public function delete() {
+        // Implement delete logic here
+        // Example: Delete user from database by $this->id
         return true;
     }
 }
