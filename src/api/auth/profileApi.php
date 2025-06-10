@@ -1,22 +1,38 @@
 <?php 
+require_once 'src/utils/JwtHandler.php';
 class ProfileApi extends ApiResourceBase{
      public function __construct()
     {
         $this->setRoles([
            
-            "create" => ['admin']
+            "create" => ['admin'],
+            "read" => ['admin'],
+            "getAll" => ['admin','Technician','quality Checker'],
         ]);
     }
+// create a new user profile
     public function create($data){
-        
-
-        if (!isset($data['username']) || !isset($data['email']) || !isset($data['password']) || !isset($data['phone'])|| !isset($data['profile_picture']) || !isset($data['role_id'])) {
+        $user = $this->getAuthenticatedUser();
+        if (!$user) {
             return [
-                'message' => 'Invalid Request. username, email, password, phone, profile_picture, and role_id must be provided.',
+                'message' => 'Invalid authentication token',
                 'status' => 'error'
             ];
-            
         }
+        if(!$this->checkRoles($user['role_name'], 'create')) {
+            return [
+                'message' => 'Unauthorized: Admin access required',
+                'status' => 'error'
+            ];
+        }
+        $missing = $this->validateFields($data, ['username', 'email', 'password', 'phone', 'profile_picture', 'role_id']);
+        if (!empty($missing)) {
+            return [
+                'message' => 'Invalid Request. Missing fields: ' . implode(', ', $missing),
+                'status' => 'error'
+            ];
+        }
+        
         $user = new User(null,$data['username'],$data['email'],$data['password'],$data['phone'],$data['profile_picture'],$data['role_id']);
         $success = $user->create();
         if ($success) {
@@ -31,4 +47,46 @@ class ProfileApi extends ApiResourceBase{
             ];
             }
         }
-    }
+// read a user profile by user_id
+        public function read($data){
+        $user = $this->getAuthenticatedUser();
+        if (!$user) {
+            return [
+                'message' => 'Invalid authentication token',
+                'status' => 'error'
+            ];
+        }
+        if(!$this->checkRoles($user['role_name'],'read')) {
+            return [
+                'message' => 'Unauthorized: Admin access required',
+                'status' => 'error'
+            ];
+        }   
+        $missing = $this->validateFields($data, ['user_id']);
+        if (!empty($missing)) {
+            return [
+                'message' => 'Invalid Request. Missing fields: ' . implode(', ', $missing),
+                'status' => 'error'
+            ];
+        }
+            
+            $user = new User($data['user_id']);
+            $result = $user->read();
+            if ($result) {
+                return [
+                    'message' => 'User retrieved successfully',
+                    'status' => 'success',
+                    'data' => $user
+                ];
+            } else {
+                return [
+                    'message' => 'Failed to retrieve user',
+                    'status' => 'error'
+                ];
+            }
+
+        }
+
+        
+
+}
