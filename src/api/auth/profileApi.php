@@ -6,8 +6,10 @@ class ProfileApi extends ApiResourceBase{
         $this->setRoles([
            
             "create" => ['admin'],
-            "read" => ['admin'],
-            "getAll" => ['admin','Technician','quality Checker'],
+            "get" => ['admin'],
+            "getAll" => ['admin'],
+            'update'=> ['admin','Technician','Quality_Checker'],
+            'delete'=> ['admin'],
         ]);
     }
 // create a new user profile
@@ -48,7 +50,7 @@ class ProfileApi extends ApiResourceBase{
             }
         }
 // read a user profile by user_id
-        public function read($data){
+        public function get($data){
         $user = $this->getAuthenticatedUser();
         if (!$user) {
             return [
@@ -56,7 +58,7 @@ class ProfileApi extends ApiResourceBase{
                 'status' => 'error'
             ];
         }
-        if(!$this->checkRoles($user['role_name'],'read')) {
+        if(!$this->checkRoles($user['role_name'],'get')) {
             return [
                 'message' => 'Unauthorized: Admin access required',
                 'status' => 'error'
@@ -86,7 +88,112 @@ class ProfileApi extends ApiResourceBase{
             }
 
         }
+// get all user profiles
+public function getAll($data){
+        $user = $this->getAuthenticatedUser();
+        if (!$user) {
+            return [
+                'message' => 'Invalid authentication token',
+                'status' => 'error'
+            ];
+        }
+        if(!$this->checkRoles($user['role_name'], 'getAll')) {
+            return [
+                'message' => 'Unauthorized: Admin access required',
+                'status' => 'error'
+            ];
+        }
+        $missing = $this->validateFields($data, ['email', 'page', 'limit']);
+        if (!empty($missing)) {
+            return [
+                'message' => 'Invalid Request. Missing fields: ' . implode(', ', $missing),
+                'status' => 'error'
+            ];
+        }
+        // Ensure limit and page are integers for security
+        $limit = isset($data['limit']) ? (int)$data['limit'] : 10;
+        $page = isset($data['page']) ? (int)$data['page'] : 1;
+        $email = isset($data['email']) ? $data['email'] : '';
+        $res = User::get_all($email, $limit, $page);
+        return [
+            'message' => 'Users retrieved successfully',
+            'status' => 'success',
+            'data' => $res
+        ];
+    }
+    public function update($data){
+        $user = $this-> getAuthenticatedUser();
+        if(!$user){
+            return [
+                'message' => 'Invalid authentication token',
+                'status' => 'error'
+            ];
+        }
+        if(!$this->checkRoles($user['role_name'], 'update')) {
+            return [
+                'message' => 'Unauthorized: Admin access required',
+                'status' => 'error'
+            ];
+        }
+        $missing = $this->validateFields($data,['user_id', 'username', 'email', 'phone', 'profile_picture', 'role_id']);
+        if (!empty($missing)) {
+            return [
+                'message' => 'Invalid Request. Missing fields: ' . implode(', ', $missing),
+                'status' => 'error'
+            ];
+        }
+        $user = new User($data['user_id'], $data['username'], $data['email'], null, $data['phone'], $data['profile_picture'], $data['role_id']);
+        $success = $user->update();
+        if ($success) {
+            return [
+                'message' => 'User updated successfully',
+                'status' => $success
+            ];
+        } else {
+            return [
+                'message' => 'Failed to update user',
+                'status' => 'error'
+            ];
+        }
 
-        
+
+    }
+    public function delete($data){
+        $user = $this->getAuthenticatedUser();
+        if (!$user) {
+            return [
+                'message' => 'Invalid authentication token',
+                'status' => 'error'
+            ];
+        }
+        if(!$this->checkRoles($user['role_name'], 'delete')) {
+            return [
+                'message' => 'Unauthorized: Admin access required',
+                'status' => 'error'
+            ];
+        }
+        $missing = $this->validateFields($data, ['user_id']);
+        if (!empty($missing)) {
+            return [
+                'message' => 'Invalid Request. Missing fields: ' . implode(', ', $missing),
+                'status' => 'error'
+            ];
+        }
+        $user = new User($data['user_id']);
+        $success = $user->delete();
+        if ($success) {
+            return [
+                'message' => 'User deleted successfully',
+                'status' => $success
+            ];
+        } else {
+            return [
+                'message' => 'Failed to delete user',
+                'status' => 'error'
+            ];
+        }
+ 
+ 
+    }
 
 }
