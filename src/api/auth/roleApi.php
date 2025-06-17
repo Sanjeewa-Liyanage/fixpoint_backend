@@ -11,6 +11,7 @@ class RoleApi extends ApiResourceBase{
             "update_role" => ["admin"],
             "get_by_id"=> ["admin"],
             "getall"=> ["admin"],
+            "assign_role"=> ["admin"],
             
         ]);
         
@@ -247,5 +248,58 @@ class RoleApi extends ApiResourceBase{
                 "message" => "Database error: Failed to update role."
             ];
         }
+    }
+    public function assign_role($data){
+        $user = $this->getAuthenticatedUser();
+        if (!$user) {
+            return [
+                "status" => "error",
+                "message" => "Invalid authentication token"
+            ];
+        }
+        $roleName = isset($user['role_name']) ? $user['role_name'] : (isset($user['role']['role_name']) ? $user['role']['role_name'] : null);
+        if (!$this->checkRoles($roleName, 'update_role')) {
+            return [
+                "status" => "error",
+                "message" => "Unauthorized: Admin access required"
+            ];
+        }
+        $missing = $this->validateFields($data, ['user_id', 'role_id']);
+        if (!empty($missing)) {
+            return [
+                "status" => "error",
+                "message" => "Invalid Request. Missing fields: " . implode(", ", $missing)
+            ];
+        }
+        $role = new Role($data['role_id']);
+        $row = $role -> read();
+        if (!$row) {
+            return [
+                "status" => "error",
+                "message" => "Role not found"
+            ];
+        }
+        $user = new User($data['user_id']);
+        $userExists = $user->read();
+        if (!$userExists) {
+            return [
+                "status" => "error",
+                "message" => "User not found"
+            ];
+        }
+        $result = $user->assign_role($data['role_id']);
+        if ($result) {
+            return [
+                "status" => "success",
+                "message" => "Role assigned successfully."
+            ];
+        } else {
+            return [
+                "status" => "error",
+                "message" => "Failed to assign role."
+            ];
+        }
+
+
     }
 }
