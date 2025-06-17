@@ -8,7 +8,9 @@ class RoleApi extends ApiResourceBase{
             "create_role" => ["admin"],
             "read_role" => ["admin"],
             "delete_role" => ["admin"],
-            "update_role" => ["admin"]
+            "update_role" => ["admin"],
+            "get_by_id"=> ["admin"],
+            "getall"=> ["admin"],
             
         ]);
         
@@ -22,7 +24,9 @@ class RoleApi extends ApiResourceBase{
                 "message" => "Invalid authentication token"
             ];
         }
-        if (!$this->checkRoles($user['role_name'], 'create_role')) {
+        $roleName = isset($user['role_name']) ? $user['role_name'] : (isset($user['role']['role_name']) ? $user['role']['role_name'] : null);
+
+        if (!$this->checkRoles($roleName, 'create_role')) {
             return [
                 "status" => "error",
                 "message" => "Unauthorized: Admin access required"
@@ -61,7 +65,9 @@ class RoleApi extends ApiResourceBase{
             "message" => "Invalid authentication token"
         ];
        }
-       if (!$this->checkRoles($user["role_name"], "read_role")) {
+       $roleName = isset($user['role_name']) ? $user['role_name'] : (isset($user['role']['role_name']) ? $user['role']['role_name'] : null);
+
+       if (!$this->checkRoles($roleName, "read_role")) {
             return [
                 "status" => "error",
                 "message" => "Unauthorized: Admin access required"
@@ -100,7 +106,9 @@ class RoleApi extends ApiResourceBase{
                 "message" => "Invalid authentication token"
             ];
         }
-        if (!$this->checkRoles($user["role_name"],"delete_role")) {
+        $roleName = isset($user['role_name']) ? $user['role_name'] : (isset($user['role']['role_name']) ? $user['role']['role_name'] : null);
+
+        if (!$this->checkRoles($roleName, "delete_role")) {
             return [
                 "status" => "error",
                 "message" => "Unauthorized: Admin access required"
@@ -128,6 +136,116 @@ class RoleApi extends ApiResourceBase{
             ];
         }
     }
+    public function get_by_id($data){
+        $user = $this -> getAuthenticatedUser();
+        if(!$user){
+            return [
+                "status" => "error",
+                "message" => "Invalid authentication token"
+            ];
+        }
+        $roleName = isset($user['role_name']) ? $user['role_name'] : (isset($user['role']['role_name']) ? $user['role']['role_name'] : null);
+
+        if (!$this->checkRoles($roleName, "get_by_id")) {
+            return [
+                "status" => "error",
+                "message" => "Unauthorized: Admin access required"
+            ];
+        }
+        $missing = $this->validateFields($data, ['user_id']);
+        if (!empty($missing)) {
+            return [
+                "status" => "error",
+                "message" => "Invalid Request. Missing fields: " . implode(", ", $missing)
+            ];
+        }
+        $role = new Role();
+        $success = $role->get_by_user_id($data["user_id"]);
+        if($success){
+            return [
+                "status" => "success",
+                "data" => $role
+            ];
+        } else {
+            return [
+                "status" => "error",
+                "message" => "Failed to retrieve role by user ID."
+            ];
+        }
+    }
     
-    
+    public function getall($data){
+        $user = $this -> getAuthenticatedUser();
+        if(!$user){
+            return [
+                "status" => "error",
+                "message" => "Invalid authentication token"
+            ];
+        }
+        $roleName = isset($user['role_name']) ? $user['role_name'] : (isset($user['role']['role_name']) ? $user['role']['role_name'] : null);
+        if (!$this->checkRoles($roleName, "getall")) {
+            return [
+                "status" => "error",
+                "message" => "Unauthorized: Admin access required . $roleName"
+            ];
+        }
+        $missing = $this->validateFields($data, ['role_name', 'limit', 'page']);
+        if (!empty($missing)) {
+            return [
+                "status" => "error",
+                "message" => "Invalid Request. Missing fields: " . implode(", ", $missing)
+            ];
+        }
+        $result = Role::get_all($data['role_name'], $data['limit'], $data['page']);
+        if($result) {
+            return [
+                "status" => "success",
+                "data" => $result['data'],
+                "page" => $result['page'],
+                "limit" => $result['limit']
+            ];
+        } else {
+            return [
+                "status" => "error",
+                "message" => "No roles found."
+            ];
+        }
+
+    }
+    public function update_role($data) {
+        $user = $this->getAuthenticatedUser();
+        if (!$user) {
+            return [
+                "status" => "error",
+                "message" => "Invalid authentication token"
+            ];
+        }
+        $roleName = isset($user['role_name']) ? $user['role_name'] : (isset($user['role']['role_name']) ? $user['role']['role_name'] : null);
+        if (!$this->checkRoles($roleName, 'update_role')) {
+            return [
+                "status" => "error",
+                "message" => "Unauthorized: Admin access required"
+            ];
+        }
+        $missing = $this->validateFields($data, ['role_id', 'role_name', 'description']);
+        if (!empty($missing)) {
+            return [
+                "status" => "error",
+                "message" => "Invalid Request. Missing fields: " . implode(", ", $missing)
+            ];
+        }
+        $role = new Role($data['role_id'], $data['role_name'], $data['description']);
+        $success = $role->update();
+        if ($success) {
+            return [
+                "status" => "success",
+                "message" => "Role updated successfully."
+            ];
+        } else {
+            return [
+                "status" => "error",
+                "message" => "Database error: Failed to update role."
+            ];
+        }
+    }
 }

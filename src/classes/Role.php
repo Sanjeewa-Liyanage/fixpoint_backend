@@ -53,29 +53,48 @@ public function delete(){
 
 
 }
-public function get_all($name,$limit,$page){
-    $conn = DatabaseConnection::getConnection();
-    $sql = "SELECT * FROM roles WHERE role_name LIKE :name LIMIT :limit OFFSET :offset";
-    $stmt = $conn->prepare($sql);
-    $stmt-> bindValue(':name',"%$name%");
-    $stmt -> bindValue(':limit', $limit, PDO::PARAM_INT);
-    $stmt->bindParam(':offset', $page, PDO::PARAM_INT);
-    $stmt->execute();
-    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    if(count($rows)>0){
-        return [
-            'message' => 'Data retrieved successfully',
-            'data' => $rows,
-            'page' => $page,
-            'limit' => $limit,
-        ];
-    }else{
-        return [
-            'message'=> 'No data found',
-        ];
+    public static function get_all($role_name, $limit,$page){
+        $conn = DatabaseConnection::getConnection();
+        $sql = "SELECT * FROM roles WHERE role_name LIKE :role_name LIMIT :limit OFFSET :offset";
+        $stmt = $conn->prepare($sql);
+        $stmt->bindParam("role_name", $role_name);
+        $stmt->bindParam("limit", $limit);
+        $stmt->bindParam("offset", $page, PDO::PARAM_INT);
+        $stmt->execute();
+        $rows = $stmt -> fetchAll(PDO::FETCH_ASSOC);
+        if(count($rows) > 0){
+            return [
+                'message' => 'Data retrieved successfully',
+                'data' => $rows,
+                'page' => $page,
+                'limit' => $limit,
+            ];
+        } else {
+            return [
+                'message' => 'No data found',
+                'data' => [],
+                'page' => $page,
+                'limit' => $limit,
+            ];
+        }
+    }
+    public function get_by_user_id($user_id){
+        $conn = DatabaseConnection::getConnection();
+        $sql = "SELECT r.role_id, r.role_name, r.description FROM roles AS r JOIN users AS u ON r.role_id = u.role_id WHERE u.user_id = :user_id";
+        $stmt = $conn->prepare($sql);
+        $stmt->bindParam(':user_id', $user_id);
+        $stmt->execute();
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($result) {
+            $this->role_id = $result['role_id'];
+            $this->role_name = $result['role_name'];
+            $this->description = $result['description'];
+            return true;
+        } else {
+            return false;
+        }
     }
 
-}
-
+    
 
 }
