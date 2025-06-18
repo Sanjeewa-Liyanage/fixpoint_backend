@@ -5,6 +5,7 @@ class RoutineApi extends ApiResourceBase{
         $this->setRoles([
             
             'get' => ['admin', 'Technician', ],
+            'read' => ['admin', 'Technician', ],
             
         ]);
     }
@@ -57,6 +58,28 @@ class RoutineApi extends ApiResourceBase{
             'status' => 'success',
             'count' => count($result),
             'branches' => $result
+        ];
+    }
+
+    public function read($data){
+        $user = $this->getAuthenticatedUser();
+        if (!$user || !$this->checkRoles($user['role_name'], 'read')) {
+            return ['status' => 'error', 'message' => 'Unauthorized'];
+        }
+
+        $missing = $this->validateFields($data, ['routine_id']);
+        if (!empty($missing)) {
+            return ['status' => 'error', 'message' => 'Missing: ' . implode(', ', $missing)];
+        }
+
+        $routine = new Routine($data['routine_id']);
+        if (!$routine->read()) {
+            return ['status' => 'error', 'message' => 'Routine not found'];
+        }
+
+        return [
+            'status' => 'success',
+            'routine' => $routine
         ];
     }
 

@@ -1,18 +1,22 @@
 <?php
 
 class Routine extends Model {
-    private $id, $name, $address, $latitude, $longitude;
-    private $pdo;
+    public $routine_id;
+    public $planned_date;
+    public $status;
+    public $description;
+    public $response_count;
+    public $branches; // array of branch data
 
-    public function __construct($id, $name = '', $address = '', $latitude = 0, $longitude = 0) {
-        $this->id = $id;
-        $this->name = $name;
-        $this->address = $address;
-        $this->latitude = $latitude;
-        $this->longitude = $longitude;
-
-        
+    public function __construct($routine_id = null, $planned_date = null, $status = 'pending', $description = null, $response_count = 0, $branches = []) {
+        $this->routine_id = $routine_id;
+        $this->planned_date = $planned_date;
+        $this->status = $status;
+        $this->description = $description;
+        $this->response_count = $response_count;
+        $this->branches = $branches;
     }
+
     public static function getNearby($lat, $lng, $radius_km = 10) {
         $conn = DatabaseConnection::getConnection();
         $sql = "SELECT branch_id,client_id,name, address, latitude, longitude
@@ -31,16 +35,27 @@ class Routine extends Model {
     }
 
     public function create() {
-        
         // Implement the logic to create a routine in the database
     }
 
     public function read() {
-    
-
+        $conn = DatabaseConnection::getConnection();
+        $sql = "SELECT * FROM routines WHERE id = :id";
+        $stmt = $conn->prepare($sql);
+        $stmt->bindParam(':id', $this->routine_id);
+        $stmt->execute();
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        $this->routine_id = $result['id'];
+        $this->planned_date = $result['planned_date'];
+        $this->status = $result['status'];
+        $this->description = $result['description'];
+        $this->response_count = $result['response_count'];
+        $this->branches = json_decode($result['branches'], true);
+        return $result['id'] !== null;
     }
 
     public function update() {
+        
         // Implement the logic to update a routine in the database
     }
 
