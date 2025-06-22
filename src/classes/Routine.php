@@ -55,8 +55,13 @@ class Routine extends Model {
     }
 
     public function update() {
-        
-        // Implement the logic to update a routine in the database
+        //update the routine as accepted by the admin
+        $conn = DatabaseConnection::getConnection();
+        $sql = "UPDATE routines SET status = :status WHERE id = :id";
+        $stmt = $conn->prepare($sql);
+        $stmt->bindParam(':id', $this->routine_id);
+        $stmt->bindParam(':status', $this->status);
+        return $stmt->execute();
     }
 
     public function delete() {

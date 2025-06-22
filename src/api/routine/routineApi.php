@@ -6,6 +6,7 @@ class RoutineApi extends ApiResourceBase{
             
             'get' => ['admin', 'Technician', ],
             'read' => ['admin', 'Technician', ],
+            'update' => ['admin', ],
             
         ]);
     }
@@ -81,6 +82,29 @@ class RoutineApi extends ApiResourceBase{
             'status' => 'success',
             'routine' => $routine
         ];
+    }
+    public function update($data) {
+        $user = $this->getAuthenticatedUser();
+        if (!$user || !$this->checkRoles($user['role_name'], 'update')) {
+            return ['status' => 'error', 'message' => 'Unauthorized'];
+        }
+
+        $missing = $this->validateFields($data, ['routine_id', 'status']);
+        if (!empty($missing)) {
+            return ['status' => 'error', 'message' => 'Missing: ' . implode(', ', $missing)];
+        }
+
+        $routine = new Routine($data['routine_id']);
+        if (!$routine->read()) {
+            return ['status' => 'error', 'message' => 'Routine not found'];
+        }
+
+        $routine->status = $data['status'];
+        if ($routine->update()) {
+            return ['status' => 'success', 'message' => 'Routine updated successfully'];
+        } else {
+            return ['status' => 'error', 'message' => 'Failed to update routine'];
+        }
     }
 
 
