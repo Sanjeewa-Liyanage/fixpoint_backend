@@ -45,7 +45,7 @@ class Inventory_Item extends Model{
             $this->description = $result['description'];
             $this->manufacuturer = $result['manufacuturer'];
             $this->created_at = $result['created_at'];
-            return true;
+            return $result;
         }
         return false;
 

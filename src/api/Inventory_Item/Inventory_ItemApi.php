@@ -84,16 +84,9 @@ public function read($data) {
     }
 
     $inventory_Item = new Inventory_Item(
-        $data['item_id'], // item_id
-        $data['item_name'] ,
-        $data['category'],
-        $data['description'],
-        $data['manufacturer'],
-        $data['created_at']
-
-    );
-
+        $data['item_id']);
     $result = $inventory_Item->read();
+
     if ($result) {
         return [
             'message' => 'Inventory Item retrieved successfully',
@@ -168,7 +161,7 @@ public function read($data) {
             ];
         }
 
-       $missing = $this->validateFields($data, ['item_name', 'category', 'description', 'manufacturer', 'created_at']);
+        $missing = $this->validateFields($data, ['item_id']);
         if (!empty($missing)) {
             return [
                 'message' => 'Invalid Request. Missing fields: ' . implode(', ', $missing),
@@ -176,15 +169,7 @@ public function read($data) {
             ];
         }
 
-        $inventory_Item = new Inventory_Item(
-            null, // item_id (auto-increment)
-            $data['item_name'],
-            $data['category'],
-            $data['description'],
-            $data['manufacturer'],
-            $data['created_at']
-        );
-
+        $inventory_Item = new Inventory_Item($data['item_id']);
         $success = $inventory_Item->delete();
         if ($success) {
             return [

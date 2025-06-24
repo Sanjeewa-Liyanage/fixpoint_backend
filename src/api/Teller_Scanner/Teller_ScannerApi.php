@@ -83,14 +83,13 @@ class Teller_ScannerApi extends ApiResourceBase {
             ];
         }
 
-        $scanner = new Teller_Scanner($data['scanner_id']);
-
-       $success = $scanner->read();
-        if ($success) {
+        $teller_scanner = new Teller_Scanner($data['scanner_id']);
+        $result = $teller_scanner->read();
+        if ($result) {
             return [
                 'message' => 'Teller Scanner retrieved successfully',
                 'status' => 'success',
-                
+                'data' => $result
             ];
         } else {
             return [

@@ -47,7 +47,7 @@ class Utilities extends Model{
             $this->download_link = $result['download_link'];
             $this->created_at = $result['created_at'];
             $this->updated_at = $result['updated_at'];
-            return true;
+            return $result;
         }
         return false;
     }

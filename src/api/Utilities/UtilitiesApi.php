@@ -88,21 +88,13 @@ class UtilitiesApi extends ApiResourceBase {
             ];
         }
 
-        $utility = new utilities(
-            null,
-            $data['utility_name'], 
-            $data['description'], 
-            $data['category'], 
-            $data['download_link'], 
-            $data['created_at'],
-        );
-
-        $success = $utility->read();
-        if ($success) {
+        $utility = new Utilities($data['utility_id']);
+        $result = $utility->read();
+        if ($result) {
             return [
                 'message' => 'Utility fetched successfully',
                 'status' => 'success',
-               
+                'data' => $result
             ];
         } else {
             return [
@@ -184,15 +176,7 @@ class UtilitiesApi extends ApiResourceBase {
             ];
         }
 
-       $utility = new Utilities(
-           null,
-           $data['utility_name'],
-           $data['description'],
-              $data['category'],
-              $data['download_link'],
-              $data['created_at'],
-       );
-
+       $utility = new Utilities($data['utility_id']);
         $success = $utility->delete();
         if ($success) {
             return [

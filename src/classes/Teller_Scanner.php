@@ -53,7 +53,7 @@ class Teller_Scanner extends Model {
             $this->remarks = $result['remarks'];
             $this->manufactured_date = $result['manufactured_date'];
             $this->warranty_expiry = $result['warranty_expiry'];
-            return true;
+            return $result;
         }
         return false;
     }
