@@ -1,0 +1,40 @@
+# === PHP Specific ===
+vendor/
+composer.lock
+
+# === Environment Configuration ===
+.env
+.env.*.local
+
+# === Logs and temp files ===
+*.log
+*.cache
+*.tmp
+*.bak
+
+# === OS Specific ===
+.DS_Store
+Thumbs.db
+
+# === IDEs and Editors ===
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# === PHPUnit ===
+.phpunit.result.cache
+tests/_output/
+
+# === Coverage Reports ===
+coverage/
+clover.xml
+phpunit.xml.cache
+
+# === Backup Files ===
+*~
+*.swp
+*.swo
+
+# === Others ===
+node_modules/  # In case your PHP project also uses frontend tools
