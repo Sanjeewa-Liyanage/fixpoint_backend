@@ -11,11 +11,19 @@ require_once 'src/classes/Utilities.php';
 require_once 'src/classes/Stock.php';
 require_once 'src/classes/Teller_Scanner.php';
 require_once 'src/classes/Routine.php';
+require_once 'src/classes/Repair.php';
+require_once 'src/classes/Branch.php';
 
 require_once 'src/api/auth/roleApi.php';
 require_once 'src/api/auth/userApi.php';
 require_once 'src/api/auth/profileApi.php';
 require_once 'src/api/routine/routineApi.php';
+
+require_once 'src/api/branch/branchApi.php';
+require_once 'src/api/repair/repairApi.php';
+
+
+
 require_once 'src/api/chdm/chdmApi.php';
 require_once 'src/api/inventory_item/Inventory_ItemApi.php';
 require_once 'src/api/utilities/UtilitiesApi.php';
