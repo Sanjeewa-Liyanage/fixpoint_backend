@@ -33,8 +33,9 @@ jobs:
         if: steps.check_files.outputs.files_exists == 'true'
         run: composer validate --no-check-publish && composer install --prefer-dist --no-progress
 
-      - name: Zip artifact for deployment
-        run: zip release.zip ./* -r
+      - name: Zip artifact for deployment (including dotfiles)
+        run: zip -r release.zip . 
+
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
