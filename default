@@ -5,7 +5,7 @@ server {
     listen [::]:8080;
     root /home/site/wwwroot;
     index  index.php index.html index.htm;
-    server_name  fix-point-be-dbcdevb6evcmatag.canadacentral-01.azurewebsites.net fix-point-be-dbcdevb6evcmatag.canadacentral-01.azurewebsites.net; 
+    server_name fixpoint-be.azurewebsites.net ; 
     port_in_redirect off;
 
     location / {            
