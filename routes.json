@@ -2,7 +2,21 @@
   "routes": [
     {
       "route": "/*",
-      "rewrite": "/index.php"
+      "serve": "/index.php",
+      "statusCode": 200
     }
-  ]
+  ],
+  "platformErrorOverrides": [
+    {
+      "errorType": "NotFound",
+      "serve": "/index.php",
+      "statusCode": 200
+    }
+  ],
+  "responseOverrides": {
+    "403": {
+      "statusCode": 200,
+      "serve": "/index.php"
+    }
+  }
 }
