@@ -41,8 +41,8 @@ function generateOpenAPISpecs($endpoints) {
             'version' => '1.0.0',
         ],
         'servers' => [
-            ['url' => 'http://localhost/ezmenu-be-php'],
-            ['url' => 'https://ezmenu-be.azurewebsites.net/ezmenu-be-php']
+            ['url' => 'http://localhost/fixpoint-be-php'],
+            ['url' => 'https://ezmenu-be.azurewebsites.net/fixpoint-be-php']
         ],
         'paths' => []
     ];
@@ -228,8 +228,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_openapi'])) 
                     <div class="form-group">
                         <button type="button" class="btn btn-primary" onclick="sendRequest()">Send Request</button>
                         <button type="button" class="btn btn-secondary" onclick="shareRequest()">Share Request</button>
+                        <button type="button" class="btn btn-info" onclick="generateDirectApiLink()">Direct API Link</button>
                     </div>
                     <input type="text" class="form-control" id="sharedUrl" readonly>
+                    <input type="text" class="form-control mt-2" id="directApiUrl" readonly>
                     <hr>
                     <div class="axios-code" class="response">
                         <h2>Axios Code:</h2>
@@ -254,7 +256,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_openapi'])) 
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
     <script>
         function sendRequest() {
-    var url = "/ezmenu-be-php" + $('#url').val();
+    var url = "/fixpoint-be-php" + $('#url').val();
     var method = $('#method').val();
     var data = $('#data').val();
     var headers = {};
@@ -289,15 +291,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_openapi'])) 
             var method = $('#method').val();
             var data = $('#data').val();
             var shareUrl = new URL(location.href);
-            shareUrl.searchParams.set('url', url);
-            shareUrl.searchParams.set('method', method);
-            shareUrl.searchParams.set('data', data);
+            shareUrl.searchParams.set('url', encodeURIComponent(url));
+            shareUrl.searchParams.set('method', encodeURIComponent(method));
+            shareUrl.searchParams.set('data', encodeURIComponent(data));
             $('#sharedUrl').val(shareUrl.href);
         }
 
+        function generateDirectApiLink() {
+    var baseUrl = location.origin + '/fixpoint-be-php';
+    var url = $('#url').val();
+    var method = $('#method').val();
+    var data = $('#data').val();
+    var apiUrl = baseUrl + url;
+    if (method === 'GET') {
+        try {
+            var obj = JSON.parse(data || '{}');
+            var params = new URLSearchParams(obj).toString();
+            if (params) apiUrl += '?' + params;
+        } catch (e) {}
+    }
+    $('#directApiUrl').val(apiUrl);
+}
+
         function generateAxiosCode() {
     var baseUrl = location.origin;
-    var url = baseUrl + "/ezmenu-be-php" + $('#url').val();
+    var url = baseUrl + "/fixpoint-be-php" + $('#url').val();
     var method = $('#method').val();
     var data = $('#data').val();
     var headers = $('#headers').val();
@@ -324,17 +342,17 @@ async function fetchData() {
 
         $(document).ready(function() {
             var url = new URL(location.href);
-            var shareUrl = decodeURIComponent(url.searchParams.get('url'));
-            var method = decodeURIComponent(url.searchParams.get('method'));
-            var data = decodeURIComponent(url.searchParams.get('data'));
+            var shareUrl = url.searchParams.get('url');
+            var method = url.searchParams.get('method');
+            var data = url.searchParams.get('data');
             if (shareUrl) {
-                $('#url').val(shareUrl);
+                $('#url').val(decodeURIComponent(shareUrl));
             }
             if (method) {
-                $('#method').val(method);
+                $('#method').val(decodeURIComponent(method));
             }
             if (data) {
-                $('#data').val(data);
+                $('#data').val(decodeURIComponent(data));
             }
         });
     </script>
