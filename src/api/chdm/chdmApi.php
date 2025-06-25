@@ -7,73 +7,153 @@ class ChdmApi extends ApiResourceBase{
         "view_passes_chdm" => ["admin", "quality_checker"],
         "view_failed_chdm" => ["admin", "quality_checker"],
         "update_status" => ["admin", "quality_checker"],
+        "update_location" => ["admin", "quality_checker"],
+        "update_branch_id" => ["admin", "quality_checker"],
         "delete" => ["admin"]
        ]); 
     }
 
     public function create_chdm($data){
-        if(!isset($data['serial_no']) || !isset($data['state']) || !isset($data['location']) || !isset($data['description']) || !isset($data['tested_date']) || !isset($data['branch_id'])){
+       $user = $this->getAuthenticatedUser();
+       if (!$user) {
             return [
+                "message" => "Invalid or expired token. Please log in again.",
+                "status" => "error"
+            ];
+        }
+
+        if(!$this->checkRoles($user['role_name'], 'create_chdm')){
+            return [
+                "message" => "Unauthorized: Admin or Quality Checker access required",
                 "status" => "error",
-                "message" => "All fields are required"
+            ];
+        }
+
+       $missing = $this->validateFields($data,["serial_no", "state", "location", "description", "tested_date"]);
+        
+        if (!empty($missing)) {
+            return [
+                "message" => "Missing required fields: " . implode(", ", $missing),
+                "status" => "error"
             ];
         }
         
-        $chdm = new Chdm(null, $data['serial_no'], $data['state'], $data['location'], $data['description'], $data['tested_date'], $data['branch_id']);
+        $chdm = new Chdm(null, $data['serial_no'], $data['state'], $data['location'], $data['description'], $data['tested_date']);
         $success = $chdm->create();
         
         if($success){
             return [
                 "status" => "success",
-                "message" => "CHDM created successfully"
+                "message" => "CHDM created successfully.$success",
             ];
         } else {
             return [
-                "status" => "error",
-                "message" => "Failed to create CHDM"
+                "message" => "Failed to create CHDM",
+                "status" => "error"
             ];
         }
     }
-public function view_passes_chdm(){
+public function view_passes_chdm($data){
+   $user = $this->getAuthenticatedUser();
+   if (!$user) {
+        return [
+            "message" => "Invalid or expired token. Please log in again.",
+            "status" => "error"
+        ];
+    }
+    if(!$this->checkRoles($user['role_name'], 'view_passes_chdm')){
+        return [
+            "message" => "Unauthorized: Admin or Quality Checker access required",
+            "status" => "error"
+        ];
+    }
+    $missing = $this->validateFields($data,["state"]);
+        
+        if (!empty($missing)) {
+            return [
+                "message" => "Missing required fields: " . implode(", ", $missing),
+                "status" => "error"
+            ];
+        }
    $chdm = new Chdm();
    $result = $chdm->read();
-    if($result){
-         return [
-              "status" => "success",
-              "data" => $result
-         ];
-    } else {
-         return [
-              "status" => "error",
-              "message" => "No passed CHDM records found"
-         ];
-    }
-}
+   if($result){
+    return [
+        'status'=> 'success',
+        'message'=> 'CHDM records retrieved successfully',
+        'data'=> $result,
+    ];
+   }else{
+    return [
+        'message'=> 'No CHDM records found ',
+        'status'=> 'error'
+        ];
+   }
 
-    public function view_failed_chdm(){
+   
+    } 
+    public function view_failed_chdm($data){
+       $user = $this->getAuthenticatedUser();
+       if (!$user) {
+            return [
+                "message" => "Invalid or expired token. Please log in again.",
+                "status" => "error"
+            ];
+        }
+        if(!$this->checkRoles($user["role_name"], "view_failed_chdm")){
+            return [
+                "message" => "Unauthorized: Admin or Quality Checker access required",
+                "status" => "error"
+            ];
+        }
+         $missing = $this->validateFields($data,["state"]);
+        
+        if (!empty($missing)) {
+            return [
+                "message" => "Missing required fields: " . implode(", ", $missing),
+                "status" => "error"
+            ];
+        }
         $chdm = new Chdm();
         $result = $chdm->read_failed();
         if($result){
             return [
                 "status"=> "success",
+                "message"=> "Failed CHDM records retrieved successfully",
                 "data"=> $result
             ];
         } else {
             return [
-                "status"=> "error",
-                "message"=>"No failed CHDM records found"
+                "message"=>"No failed CHDM records found",
+                "status"=> "error"
             ];
         }
     }
 
     public function update_status($data) {
-    if (!isset($data['id']) || !isset($data['status'])) {
-        return [
-            "status" => "error",
-            "message" => "ID and status are required"
-        ];
-    }
-    $chdm = new Chdm($data['id']);
+       $user = $this->getAuthenticatedUser();
+       if (!$user) {
+            return [
+                "message"=> "Invalid or expired token. Please log in again.",
+                "status"=> "error"
+            ];
+        }
+        if(!$this->checkRoles($user['role_name'], 'update_status')){
+            return [
+                "message"=> "Unauthorized: Admin or Quality Checker access required",
+                "status"=> "error"
+            ];
+        }
+        $missing = $this->validateFields($data, ["serial_no", "status",]);
+
+        if (!empty($missing)) {
+            return [
+                "message"=> "Missing required fields: " . implode(", ", $missing),
+                "status"=> "error"
+            ];
+        }
+    
+    $chdm = new Chdm($data['serial_no'], null,null, $data['status']);
     $success = $chdm->update_status($data['status']);
     if ($success) {
         return [
@@ -88,14 +168,107 @@ public function view_passes_chdm(){
     }
 }
 
+public function update_location($data) {
+    $user = $this->getAuthenticatedUser();
+    if (!$user) {
+        return [
+            "message"=> "Invalid or expired token. Please log in again.",
+            "status"=> "error"
+        ];
+    }
+   if(!$this->checkRoles($user['role_name'], 'update_location')){
+        return [
+            "message"=> "Unauthorized: Admin or Quality Checker access required",
+            "status"=> "error"
+        ];
+    }
+    $missing = $this->validateFields($data, ["serial_no", "location"]);
+
+    if (!empty($missing)) {
+        return [
+            "message"=> "Missing required fields: " . implode(", ", $missing),
+            "status"=> "error"
+        ];
+    }
+
+    $chdm = new Chdm($data['serial_no'], null, null, $data['location']);
+    $success = $chdm->update_location($data['location']);
+    if ($success) {
+        return [
+            "status"=> "success",
+            "message"=> "CHDM location updated successfully"
+        ];
+    } else {
+        return [
+            "message"=> "Failed to update CHDM location",
+            "status"=> "error"
+        ];
+    }
+}
+
+public function update_branch_id($data) {
+    $user = $this->getAuthenticatedUser();
+    if (!$user) {
+        return [
+            "message"=> "Invalid or expired token. Please log in again.",
+            "status"=> "error"
+        ];
+    }
+    if(!$this->checkRoles($user["role_name"], "update_branch_id")){
+        return [
+            "message"=> "Unauthorized: Admin or Quality Checker access required",
+            "status"=> "error"
+        ];
+    }
+    $missing = $this->validateFields($data, ["serial_no", "branch_id"]);
+
+    if (!empty($missing)) {
+        return [
+            "message"=> "Missing required fields: " . implode(", ", $missing),
+            "status"=> "error"
+        ];
+    }
+    $chdm = new Chdm($data["serial_no"], null,$data["branch_id"]);
+    $success = $chdm->update_branch_id($data["branch_id"]);
+    if ($success) {
+        return [
+            "status"=> "success",
+            "message"=> "CHDM branch ID updated successfully"
+        ];
+    } else {
+        return [
+            "message"=> "Failed to update CHDM branch ID",
+            "status"=> "error"
+        ]; 
+    }
+}
+
+
     public function delete($data) {
-        if (!isset($data['id'])){
+        $user = $this->getAuthenticatedUser();
+        if (!$user) {
             return [
-                "status"=> "error",
-                "message"=> "ID is required"
+                "message"=> "Invalid or expired token. Please log in again.",
+                "status"=> "error"
             ];
         }
-        $chdm = new Chdm($data['id']);
+
+        if (!$this->checkRoles($user["role_name"], "delete")){
+            return [
+                "message"=> "Unauthorized: Admin access required",
+                "status"=> "error"
+            ];
+        }
+
+        $missing = $this->validateFields($data, ["serial_no"]);
+
+        if (!empty($missing)) {
+            return [
+                "message"=> "Missing required fields: " . implode(", ", $missing),
+                "status"=> "error"
+            ];
+        }
+        $chdm = new Chdm($data['serial_no']);
         $success = $chdm->delete();
         if ($success) {
             return [
