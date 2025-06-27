@@ -1,0 +1,20 @@
+{
+  "routes": [
+    {
+      "route": "/playground",
+      "serve": "/src/playground/index.php"
+    },
+    {
+      "route": "/playground/",
+      "serve": "/src/playground/index.php"
+    },
+    {
+      "route": "/playground/*",
+      "serve": "/src/playground/index.php"
+    },
+    {
+      "route": "/*",
+      "serve": "/index.php"
+    }
+  ]
+}
