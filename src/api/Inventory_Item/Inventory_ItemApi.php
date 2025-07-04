@@ -1,0 +1,186 @@
+<?php
+require_once 'src/utils/JwtHandler.php';
+
+class Inventory_ItemApi extends ApiResourceBase  {
+    public function __construct() {
+        $this->setRoles([
+            "create" => ['admin','technician','Quality Checker'],
+            "read" => ['admin', 'technician', 'Quality Checker'],
+            "update" => ['admin', 'technician', 'Quality Checker'],
+            "delete" => ['admin']
+        ]);
+    }
+
+    public function create($data) {
+        $user = $this->getAuthenticatedUser();
+        if (!$user) {
+            return [
+                'message' => 'Invalid or expired token. Please log in again.',
+                'status' => 'error'
+            ];
+        }
+        if (!$this->checkRoles($user['role_name'], 'create')) {
+            return [
+                'message' => 'Unauthorized: Access denied',
+                'status' => 'error'
+            ];
+        }
+
+        $missing = $this->validateFields($data, ['item_name', 'category', 'description', 'manufacturer', 'created_at']);
+        if (!empty($missing)) {
+            return [
+                'message' => 'Invalid Request. Missing fields: ' . implode(', ', $missing),
+                'status' => 'error'
+            ];
+        }
+        // Use correct parameter order and names for Inventory_Item constructor
+
+        $inventory_Item = new Inventory_Item(
+            null, // item_id (auto-increment)
+            $data['item_name'],
+            $data['category'],
+            $data['description'],
+            $data['manufacturer'],
+            $data['created_at']
+        );
+
+        $success = $inventory_Item->create();
+        if ($success) {
+            return [
+                'message' => 'Inventory Item created successfully',
+                'status' => 'success'
+            ];
+    } else {
+        return [
+            'message' => 'Failed to create Inventory Item',
+            'status' => 'error'
+        ];
+    }
+    
+}
+
+public function read($data) {
+    $user = $this->getAuthenticatedUser();
+    if (!$user) {
+        return [
+            'message' => 'Invalid or expired token. Please log in again.',
+            'status' => 'error'
+        ];
+    }
+
+    if (!$this->checkRoles($user['role_name'], 'read')) {
+        return [
+            'message' => 'Unauthorized: Access denied',
+            'status' => 'error'
+        ];
+    }
+    
+   $missing = $this->validateFields($data, ['item_id']);
+    if (!empty($missing)) {
+        return [
+            'message' => 'Invalid Request. Missing fields: ' . implode(', ', $missing),
+            'status' => 'error'
+        ];
+    }
+
+    $inventory_Item = new Inventory_Item(
+        $data['item_id']);
+    $result = $inventory_Item->read();
+
+    if ($result) {
+        return [
+            'message' => 'Inventory Item retrieved successfully',
+            'status' => 'success',
+            'data' => $result
+        ];
+    } else {
+        return [
+            'message' => 'Failed to retrieve Inventory Item',
+            'status' => 'error'
+        ];
+    }
+}
+
+    public function update($data){
+        $user = $this->getAuthenticatedUser();
+        if (!$user) {
+            return [
+                'message' => 'Invalid or expired token. Please log in again.',
+                'status' => 'error'
+            ];
+        }
+        if (!$this->checkRoles($user['role_name'], 'update')) {
+            return [
+                'message' => 'Unauthorized: Access denied',
+                'status' => 'error'
+            ];
+        }
+
+        $missing = $this->validateFields($data, [ 'item_name', 'category', 'description', 'manufacturer', 'created_at']);
+        if (!empty($missing)) {
+            return [
+                'message' => 'Invalid Request. Missing fields: ' . implode(', ', $missing),
+                'status' => 'error'
+            ];
+        }
+
+        $inventory_Item = new Inventory_Item(
+           null, // item_id (auto-increment)
+            $data['item_name'],
+            $data['category'],
+            $data['description'],
+            $data['manufacturer'],
+            $data['created_at']
+        );
+        $success = $inventory_Item->update();
+        if ($success) {
+            return [
+                'message' => 'Inventory Item updated successfully',
+                'status' => 'success'
+            ];
+        } else {
+            return [
+                'message' => 'Failed to update Inventory Item',
+                'status' => 'error'
+            ];
+        }
+    }
+
+    public function delete($data) {
+        $user = $this->getAuthenticatedUser();
+        if (!$user) {
+            return [
+                'message' => 'Invalid or expired token. Please log in again.',
+                'status' => 'error'
+            ];
+        }
+        if (!$this->checkRoles($user['role_name'], 'delete')) {
+            return [
+                'message' => 'Unauthorized: Access denied',
+                'status' => 'error'
+            ];
+        }
+
+        $missing = $this->validateFields($data, ['item_id']);
+        if (!empty($missing)) {
+            return [
+                'message' => 'Invalid Request. Missing fields: ' . implode(', ', $missing),
+                'status' => 'error'
+            ];
+        }
+
+        $inventory_Item = new Inventory_Item($data['item_id']);
+        $success = $inventory_Item->delete();
+        if ($success) {
+            return [
+                'message' => 'Inventory Item deleted successfully',
+                'status' => 'success'
+            ];
+        } else {
+            return [
+                'message' => 'Failed to delete Inventory Item',
+                'status' => 'error'
+            ];
+        }
+    }
+}
