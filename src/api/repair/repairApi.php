@@ -5,6 +5,7 @@ class RepairApi extends ApiResourceBase {
         $this->setRoles([
             "create_repair" => ["admin", "technician"],
             "read_repair" => ["admin", "technician", "user"],
+            "read_all_repairs" => ["admin", "technician", "user"],
             "update_repair" => ["admin", "technician"],
             "delete_repair" => ["admin"]
         ]);
@@ -25,7 +26,8 @@ class RepairApi extends ApiResourceBase {
             ];
         }
 
-        $missing = $this->validateFields($data, ['device_type', 'device_id', 'branch_id', 'technician_id', 'start_time']);
+        $missing = $this->validateFields($data, ['device_type', 'device_id', 'branch_id', 'technician_id', 'start_time', 'virtual_support_link']);
+         // Ensure all required fields are present
         if (!empty($missing)) {
             return [
                 "status" => "error",
@@ -33,7 +35,7 @@ class RepairApi extends ApiResourceBase {
             ];
         }
 
-        $repair = new Repair(null, $data['device_type'], $data['device_id'], $data['branch_id'], $data['technician_id'], $data['start_time']);
+        $repair = new Repair(null, $data['device_type'], $data['device_id'], $data['branch_id'], $data['technician_id'], $data['start_time'],null,null,null, $data['virtual_support_link']);
         $success = $repair->create();
 
         if ($success) {
@@ -79,12 +81,61 @@ class RepairApi extends ApiResourceBase {
         if ($success) {
             return [
                 "status" => "success",
-                "data" => $repair
+                "data" => [
+                    "repair_id" => $repair->repair_id,
+                    "device_type" => $repair->device_type,
+                    "device_id" => $repair->device_id,
+                    "branch_id" => $repair->branch_id,
+                    "branch_name" => $repair->branch_name,
+                    "technician_id" => $repair->technician_id,
+                    "technician_name" => $repair->technician_name,
+                    "start_time" => $repair->start_time,
+                    "end_time" => $repair->end_time,
+                    "status" => $repair->status,
+                    "summary" => $repair->summary,
+                    "virtual_support_link" => $repair->virtual_support_link,
+                    "backup_sent" => $repair->backup_sent,
+                    "visit_required" => $repair->visit_required
+                ]
             ];
         } else {
             return [
                 "status" => "error",
-                "message" => "Database error: Failed to read repair."
+                "message" => "Repair not found with the provided repair_id."
+            ];
+        }
+    }
+
+    public function read_all_repairs($data) {
+        $user = $this->getAuthenticatedUser();
+        if (!$user) {
+            return [
+                "status" => "error",
+                "message" => "Invalid authentication token"
+            ];
+        }
+        if (!$this->checkRoles($user['role_name'], 'read_all_repairs')) {
+            return [
+                "status" => "error",
+                "message" => "Unauthorized: Admin, Technician or User access required"
+            ];
+        }
+
+        $repair = new Repair();
+        $results = $repair->readAll();
+
+        if ($results && count($results) > 0) {
+            return [
+                "status" => "success",
+                "data" => $results,
+                "count" => count($results)
+            ];
+        } else {
+            return [
+                "status" => "success",
+                "data" => [],
+                "count" => 0,
+                "message" => "No repair records found."
             ];
         }
     }

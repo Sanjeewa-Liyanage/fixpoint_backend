@@ -43,9 +43,44 @@ class Branch extends Model{
 
     }
     public function read(){
-        
+
+    $conn = DatabaseConnection::getConnection();
+    $sql = "SELECT * FROM branch WHERE branch_id = :branch_id";
+    $stmt = $conn->prepare($sql);
+    $stmt->bindParam(":branch_id", $this->branch_id);
+    $stmt->execute();
+    $result = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($result) {
+        $this->client_id = $result['client_id'];
+        $this->name = $result['name'];
+        $this->address = $result['address'];
+        $this->latitude = $result['latitude'];
+        $this->longitude = $result['longitude'];
+        $this->location = $result['location'];
+        $this->contact_person = $result['contact_person'];
+        $this->phone = $result['phone'];
+        $this->email = $result['email'];
+        return true;
+    }
+    return false;  
        
     }
+
+    public static function getAllBranchDetails(){
+
+        $conn = DatabaseConnection::getConnection();
+        $sql ="SELECT b.*, c.name AS client_name FROM branch b JOIN client c ON b.client_id = c.client_id";
+        $stmt = $conn->prepare($sql);
+        $stmt->execute();
+        $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return $result;
+
+    }
+
+
+    
+
+
     public function delete(){
         $conn = DatabaseConnection::getConnection();
         $sql = 'DELETE FROM branch WHERE branch_id = :branch_id';
@@ -82,6 +117,20 @@ class Branch extends Model{
         $branches = $stmt->fetchAll(PDO::FETCH_ASSOC);
         return $branches;
     }
+
+    public static function getById($branch_id) {
+        $conn = DatabaseConnection::getConnection();
+        $sql = "SELECT * FROM branch WHERE branch_id = :branch_id";
+        $stmt = $conn->prepare($sql);
+        $stmt->bindParam(":branch_id", $branch_id);
+        $stmt->execute();
+        $branch = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $branch;
+    }
+
+
+
+
     public function updateName($branch_id, $name) {
         $conn = DatabaseConnection::getConnection();
         $sql = 'UPDATE branch SET name = :name WHERE branch_id = :branch_id';
