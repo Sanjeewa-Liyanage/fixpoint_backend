@@ -44,18 +44,72 @@
         }
         public function read() {
             $conn = DatabaseConnection::getConnection();
-            $sql = "SELECT * FROM installation WHERE status = 'success'";
+            $sql = "SELECT 
+                        i.installation_id,
+                        i.chdm_id,
+                        i.branch_id,
+                        i.technician_id,
+                        i.status,
+                        i.date,
+                        i.completion_date,
+                        i.software_version,
+                        i.ip_address,
+                        i.notes,
+                        u.username as technician_name,
+                        u.email as technician_email,
+                        u.phone as technician_phone
+                    FROM installation i
+                    LEFT JOIN users u ON i.technician_id = u.user_id";
             $stmt = $conn->prepare($sql);
             $stmt->execute();
             $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
             return $result;
+        }
 
-            
-            
+        
+        public function read_with_technician() {
+            $conn = DatabaseConnection::getConnection();
+            $sql = "SELECT 
+                        i.installation_id,
+                        i.chdm_id,
+                        i.branch_id,
+                        i.technician_id,
+                        i.status,
+                        i.date,
+                        i.completion_date,
+                        i.software_version,
+                        i.ip_address,
+                        i.notes,
+                        u.username as technician_name,
+                        u.email as technician_email,
+                        u.phone as technician_phone
+                    FROM installation i
+                    LEFT JOIN users u ON i.technician_id = u.user_id
+                    WHERE i.status = 'success'";
+            $stmt = $conn->prepare($sql);
+            $stmt->execute();
+            $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            return $result;
         }
         public function read_pending() {
             $conn = DatabaseConnection::getConnection();
-            $sql = "SELECT * FROM installation WHERE status = 'pending'";
+            $sql = "SELECT 
+                        i.installation_id,
+                        i.chdm_id,
+                        i.branch_id,
+                        i.technician_id,
+                        i.status,
+                        i.date,
+                        i.completion_date,
+                        i.software_version,
+                        i.ip_address,
+                        i.notes,
+                        u.username as technician_name,
+                        u.email as technician_email,
+                        u.phone as technician_phone
+                    FROM installation i
+                    LEFT JOIN users u ON i.technician_id = u.user_id
+                    WHERE i.status = 'pending'";
             $stmt = $conn->prepare($sql);
             $stmt->execute();
             $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -63,15 +117,50 @@
 
             
         }
-        public function update() {
+         public function update_status($status) {
             $conn = DatabaseConnection::getConnection();
             $sql = "UPDATE installation SET status = :status WHERE installation_id = :installation_id";
             $stmt = $conn->prepare($sql);
-            $stmt->bindParam('status', $this-> status);
-            $stmt->bindParam('installation_id', $this->installation_id);
+            $stmt->bindParam(':status', $status);
+            $stmt->bindParam(':installation_id', $this->installation_id);
             $success = $stmt->execute();
             return $success;
         }
+
+        public function software_version($software_version) {
+            $conn = DatabaseConnection::getConnection();
+            $sql = "UPDATE installation SET software_version = :software_version WHERE installation_id = :installation_id";
+            $stmt = $conn->prepare($sql);
+            $stmt->bindParam(':software_version', $software_version);
+            $stmt->bindParam(':installation_id', $this->installation_id);
+            $success = $stmt->execute();
+            return $success;
+        }
+
+        public function completion_date($completion_date) {
+            $conn = DatabaseConnection::getConnection();
+            $sql = "UPDATE installation SET completion_date = :completion_date WHERE installation_id = :installation_id";
+            $stmt = $conn->prepare($sql);
+            $stmt->bindParam(':completion_date', $completion_date);
+            $stmt->bindParam(':installation_id', $this->installation_id);
+            $success = $stmt->execute();
+            return $success;
+        }
+
+        public function notes($notes) {
+            $conn = DatabaseConnection::getConnection();
+            $sql = "UPDATE installation SET notes = :notes WHERE installation_id = :installation_id";
+            $stmt = $conn->prepare($sql);
+            $stmt->bindParam(':notes', $notes);
+            $stmt->bindParam(':installation_id', $this->installation_id);
+            $success = $stmt->execute();
+            return $success;
+        }
+       public function update() {
+        // Implement update logic here
+        // Example: Update chdm in database by $this->id
+        return true;
+    }
         public function delete() {
             $conn = DatabaseConnection::getConnection();
             $sql = 'DELETE FROM installation WHERE installation_id = :installation_id';

@@ -10,6 +10,7 @@ class ProfileApi extends ApiResourceBase{
             "getAll" => ['admin'],
             'update'=> ['admin','Technician','Quality_Checker'],
             'delete'=> ['admin'],
+            'getAllUsers' => ['admin']
         ]);
     }
 // create a new user profile
@@ -27,15 +28,16 @@ class ProfileApi extends ApiResourceBase{
                 'status' => 'error'
             ];
         }
-        $missing = $this->validateFields($data, ['username', 'email', 'password', 'phone', 'profile_picture', 'role_id']);
+        // Only require user fields, not role_id
+        $missing = $this->validateFields($data, ['username', 'email', 'password', 'phone', 'profile_picture']);
         if (!empty($missing)) {
             return [
                 'message' => 'Invalid Request. Missing fields: ' . implode(', ', $missing),
                 'status' => 'error'
             ];
         }
-        
-        $user = new User(null,$data['username'],$data['email'],$data['password'],$data['phone'],$data['profile_picture'],$data['role_id']);
+        // Do not set role_id at creation
+        $user = new User(null, $data['username'], $data['email'], $data['password'], $data['phone'], $data['profile_picture']);
         $success = $user->create();
         if ($success) {
             return [
@@ -47,7 +49,7 @@ class ProfileApi extends ApiResourceBase{
                 'message' => 'Failed to create user',
                 'status' => 'error'
             ];
-            }
+        }
         }
 // read a user profile by user_id
         public function get($data){
@@ -135,14 +137,14 @@ public function getAll($data){
                 'status' => 'error'
             ];
         }
-        $missing = $this->validateFields($data,['user_id', 'username', 'email', 'phone', 'profile_picture', 'role_id']);
+        $missing = $this->validateFields($data,['user_id', 'username', 'email', 'phone', 'profile_picture']);
         if (!empty($missing)) {
             return [
                 'message' => 'Invalid Request. Missing fields: ' . implode(', ', $missing),
                 'status' => 'error'
             ];
         }
-        $user = new User($data['user_id'], $data['username'], $data['email'], null, $data['phone'], $data['profile_picture'], $data['role_id']);
+        $user = new User($data['user_id'], $data['username'], $data['email'], null, $data['phone'], $data['profile_picture']);
         $success = $user->update();
         if ($success) {
             return [
@@ -194,6 +196,36 @@ public function getAll($data){
         }
  
  
+    }
+
+    public function getAllUsers(){
+        $user = $this-> getAuthenticatedUser();
+
+        if(!$user){
+            return [
+                'message' => 'Invalid authentication token',
+                'status' => 'error'
+            ];
+        }
+        if(!$this->checkRoles($user['role_name'], 'getAll')) {
+            return [
+                'message' => 'Unauthorized: Admin access required',
+                'status' => 'error'
+            ];
+        }
+        $users = User::get_All_Users();
+        if ($users) {
+            return [
+                'message' => 'Users retrieved successfully',
+                'status' => 'success',
+                'data' => $users
+            ];
+        } else {
+            return [
+                'message' => 'Failed to retrieve users',
+                'status' => 'error'
+            ];
+        }
     }
 
 }

@@ -6,6 +6,7 @@ class UtilitiesApi extends ApiResourceBase {
         $this->setRoles([
            "create" => [ 'admin','technician', 'Quality Checker'],
            "read" => ['admin', 'technician', 'Quality Checker'],
+              "readAll" => ['admin', 'technician', 'Quality Checker'],
            "update" => ['admin', 'technician', 'Quality Checker'],
               "delete" => ['admin']
         ]);
@@ -187,6 +188,42 @@ class UtilitiesApi extends ApiResourceBase {
             return [
                 'message' => 'Failed to delete Utility',
                 'status' => 'error'
+            ];
+        }
+    }
+
+    public function readAll($data = null) {
+        $user = $this->getAuthenticatedUser();
+        if (!$user) {
+            return [
+                'message' => 'Invalid or expired token. Please log in again.',
+                'status' => 'error'
+            ];
+        }
+
+        if (!$this->checkRoles($user['role_name'], 'readAll')) {
+            return [
+                'message' => 'Unauthorized: Access denied',
+                'status' => 'error'
+            ];
+        }
+
+        // Get all utilities records
+        $results = Utilities::readAll();
+
+        if ($results) {
+            return [
+                'message' => 'All Utilities retrieved successfully',
+                'status' => 'success',
+                'data' => $results,
+                'count' => count($results)
+            ];
+        } else {
+            return [
+                'message' => 'No Utilities found',
+                'status' => 'success',
+                'data' => [],
+                'count' => 0
             ];
         }
     }
