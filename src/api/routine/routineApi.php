@@ -7,6 +7,7 @@ class RoutineApi extends ApiResourceBase{
             'get' => ['admin', 'Technician', ],
             'read' => ['admin', 'Technician', ],
             'update' => ['admin', ],
+            'technicianCount' => ['admin', 'Technician'],
             
         ]);
     }
@@ -106,7 +107,25 @@ class RoutineApi extends ApiResourceBase{
             return ['status' => 'error', 'message' => 'Failed to update routine'];
         }
     }
-
+    public function technicianCount($data) {
+        $user = $this->getAuthenticatedUser();
+        if (!$user || !$this->checkRoles($user['role_name'], 'technicianCount')) {
+            return ['status' => 'error', 'message' => 'Unauthorized'];
+        }
+        $missing = $this->validateFields($data, ['routine_id']);
+        if (!empty($missing)) {
+            return ['status' => 'error', 'message' => 'Missing: ' . implode(', ', $missing)];
+        }
+        $routine = new Routine($data['routine_id']);
+        if (!$routine->read()) {
+            return ['status' => 'error', 'message' => 'Routine not found'];
+        }
+        $count = $routine->decideTechnicianCount();
+        return [
+            'status' => 'success',
+            'technician_count' => $count
+        ];
+    }
 
     
 }

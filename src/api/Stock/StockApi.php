@@ -6,6 +6,7 @@ class StockApi extends ApiResourceBase {
         $this->setRoles([
             "create" => ['admin', 'technician', 'Quality Checker'],
             "read" => ['admin', 'technician', 'Quality Checker'],
+            "readAll" => ['admin', 'technician', 'Quality Checker'],
             "update" => ['admin', 'technician', 'Quality Checker'],
             "delete" => ['admin']
         ]);
@@ -197,6 +198,46 @@ class StockApi extends ApiResourceBase {
             return [
                 'message' => 'Failed to delete Stock',
                 'status' => 'error'
+            ];
+        }
+    }
+
+    public function readAll($data = null) {
+        $user = $this->getAuthenticatedUser();
+        if (!$user) {
+            return [
+                'message' => 'Invalid or expired token. Please log in again.',
+                'status' => 'error'
+            ];
+        }
+
+        if (!$this->checkRoles($user['role_name'], 'readAll')) {
+            return [
+                'message' => 'Unauthorized: Access denied',
+                'status' => 'error'
+            ];
+        }
+
+        // Get all stock items
+        $conn = DatabaseConnection::getConnection();
+        $sql = "SELECT * FROM stock ORDER BY stock_id";
+        $stmt = $conn->prepare($sql);
+        $stmt->execute();
+        $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        if ($results) {
+            return [
+                'message' => 'All stock items retrieved successfully',
+                'status' => 'success',
+                'data' => $results,
+                'count' => count($results)
+            ];
+        } else {
+            return [
+                'message' => 'No stock items found',
+                'status' => 'success',
+                'data' => [],
+                'count' => 0
             ];
         }
     }

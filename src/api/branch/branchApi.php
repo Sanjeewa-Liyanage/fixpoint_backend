@@ -5,11 +5,14 @@ class BranchApi extends ApiResourceBase{
 
             "create_branch" => ["admin","technician"],
             "read_branch" => ["admin","technician"],
+            "read_branch_by_id" => ["admin","technician"],
             "delete_branch" => ["admin"],
             "update_branch_name" => ["admin"],
             "update_branch_contact_person" => ["admin"],
             "update_branch_phone" => ["admin"],
             "update_branch_email" => ["admin"],
+            "readAll_branches" => ["admin","technician"]
+            
         ]);
 
     }
@@ -96,6 +99,75 @@ class BranchApi extends ApiResourceBase{
             ];
         }
     }
+
+        public function read_branch_by_id($data) {
+        $user = $this->getAuthenticatedUser();
+        if(!$user){
+            return [
+                "status" => "error",
+                "message" => "Invalid authentication token"
+            ];
+        }
+        if(!$this->checkRoles($user['role_name'], 'read_branch_by_id')) {
+            return [
+                "status" => "error",
+                "message" => "Unauthorized: Admin or technician access required"
+            ];
+        }
+        $missing = $this->validateFields($data, ['branch_id']);
+        if (!empty($missing)) {
+            return [
+                "status" => "error",
+                "message" => "Invalid Request. Missing fields: " . implode(", ", $missing)
+            ];
+        }
+        $branch = new Branch($data['branch_id']);
+        $success = $branch->read();
+        if ($success) {
+            return [
+                "status" => "success",
+                "data" => $branch
+            ];
+        } else {
+            return [
+                "status" => "error",
+                "message" => "Failed to read branch."
+            ];
+        }
+    } 
+
+
+    public function readAll_branches() {
+        $user = $this->getAuthenticatedUser();
+        if(!$user){
+            return [
+                "status" => "error",
+                "message" => "Invalid authentication token"
+            ];
+        }
+        if(!$this->checkRoles($user['role_name'], 'readAll_branches')) {
+            return [
+                "status" => "error",
+                "message" => "Unauthorized: Admin or technician access required"
+            ];
+        }
+        $branches = Branch::getAllBranchDetails();
+        if ($branches && count($branches) > 0) {
+            return [
+                "status" => "success",
+                "data" => $branches
+            ];
+        } else {
+            return [
+                "status" => "error",
+                "message" => "No branches found."
+            ];
+        }
+    }
+
+
+
+
     public function delete_branch($data){
 
         $user = $this->getAuthenticatedUser();

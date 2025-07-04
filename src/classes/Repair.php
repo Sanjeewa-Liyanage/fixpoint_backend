@@ -12,6 +12,8 @@ class Repair extends Model {
     public $virtual_support_link;
     public $backup_sent;
     public $visit_required;
+    public $technician_name; // Added to store technician name from JOIN
+    public $branch_name; // Added to store branch name from JOIN
 
     public function __construct($repair_id = null, $device_type = null, $device_id = null, $branch_id = null, $technician_id = null, $start_time = null, $end_time = null, $status = null, $summary = null, $virtual_support_link = null, $backup_sent = null, $visit_required = null) {
         $this->repair_id = $repair_id;
@@ -31,7 +33,7 @@ class Repair extends Model {
 public function create(){
 $conn =DatabaseConnection :: getConnection();
 $status = $this->status ?? 'pending';
-$sql ="INSERT INTO repair(device_type,device_id,branch_id,technician_id,start_time,status) VALUES (:device_type, :device_id, :branch_id, :technician_id, :start_time, :status)";
+$sql ="INSERT INTO repair(device_type,device_id,branch_id,technician_id,start_time,status,virtual_support_link) VALUES (:device_type, :device_id, :branch_id, :technician_id, :start_time, :status, :virtual_support_link)";
 $stmt = $conn->prepare($sql);
 $stmt->bindParam("device_type", $this->device_type);
 $stmt->bindParam("device_id", $this->device_id);
@@ -39,36 +41,60 @@ $stmt->bindParam("branch_id", $this->branch_id);
 $stmt->bindParam("technician_id", $this->technician_id);
 $stmt->bindParam("start_time", $this->start_time);
 $stmt->bindParam("status", $status);
+$stmt->bindParam("virtual_support_link", $this->virtual_support_link);
 $success = $stmt->execute();
 return $success;
 
 }
 
 public function read(){
-  $conn =DatabaseConnection :: getConnection();
-  $sql ="SELECT * FROM repair WHERE repair_id =:repair_id;";
+  $conn = DatabaseConnection::getConnection();
+  $sql = "SELECT r.*, u.username as technician_name, b.name as branch_name 
+          FROM repair r 
+          LEFT JOIN users u ON r.technician_id = u.user_id 
+          LEFT JOIN branch b ON r.branch_id = b.branch_id 
+          WHERE r.repair_id = :repair_id";
   $stmt = $conn->prepare($sql);
   $stmt->bindParam("repair_id", $this->repair_id);
   $stmt->execute();
- $result = $stmt->fetch(PDO::FETCH_ASSOC);
+  $result = $stmt->fetch(PDO::FETCH_ASSOC);
 
-$this->device_type = $result['device_type'];
-$this->device_id = $result['device_id'];
-$this->branch_id = $result['branch_id'];
-$this->technician_id = $result['technician_id'];
-$this->start_time = $result['start_time'];
-$this->end_time = $result['end_time'];
-$this->status = $result['status'];
-$this->summary = $result['summary'];
-$this->virtual_support_link = $result['virtual_support_link'];
-$this->backup_sent = $result['backup_sent'];
-$this->visit_required = $result['visit_required'];
-return $result['repair_id'] !== null; 
-
+  if ($result) {
+    $this->device_type = $result['device_type'];
+    $this->device_id = $result['device_id'];
+    $this->branch_id = $result['branch_id'];
+    $this->technician_id = $result['technician_id'];
+    $this->start_time = $result['start_time'];
+    $this->end_time = $result['end_time'];
+    $this->status = $result['status'];
+    $this->summary = $result['summary'];
+    $this->virtual_support_link = $result['virtual_support_link'];
+    $this->backup_sent = $result['backup_sent'];
+    $this->visit_required = $result['visit_required'];
+    $this->technician_name = $result['technician_name'];
+    $this->branch_name = $result['branch_name'];
+    return true;
+  }
+  return false;
 }
+
+public function readAll(){
+  $conn = DatabaseConnection::getConnection();
+  $sql = "SELECT r.*, u.username as technician_name, b.name as branch_name 
+          FROM repair r 
+          LEFT JOIN users u ON r.technician_id = u.user_id 
+          LEFT JOIN branch b ON r.branch_id = b.branch_id 
+          ORDER BY r.repair_id DESC";
+  $stmt = $conn->prepare($sql);
+  $stmt->execute();
+  $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+  
+  return $results;
+}
+
 public function update(){
 $conn = DatabaseConnection::getConnection();
-// Fixed SQL syntax: removed 'FROM'
+
 $sql =  'UPDATE repair SET status = :status, end_time = :end_time, summary = :summary, virtual_support_link = :virtual_support_link, backup_sent = :backup_sent, visit_required = :visit_required WHERE repair_id = :repair_id';
 $stmt = $conn->prepare($sql);
 $stmt->bindParam(':repair_id', $this->repair_id);

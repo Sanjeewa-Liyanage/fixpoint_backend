@@ -18,10 +18,10 @@ class JwtHandler{
             "iat" => self::$issueAt,
             "exp"=> self::$expire,
             "data" =>[
-                 "id" => $userData['user_id'] ?? null,
-                "username" => $userData['username'] ?? null,
-                "email" => $userData['email'] ?? null,
-                "role_id" => $userData['role_id'] ?? null,
+                 "id" => $user['user_id'] ?? null,
+                "username" => $user['username'] ?? null,
+                "email" => $user['email'] ?? null,
+                "role_id" => $user['role_id'] ?? null,
                 "role_name" =>$user['role']['role_name'] ?? null,
             ]
         ];
