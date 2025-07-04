@@ -33,7 +33,7 @@ class Inventory_Item extends Model{
 
     public function read(){
         $conn = DatabaseConnection::getConnection();
-        $sql = "SELECT * FROM inventory_item WHERE item_id = :item_id";
+        $sql = "SELECT item_name, category, description, manufacuturer, created_at FROM inventory_item WHERE item_id = :item_id";
         $stmt = $conn->prepare($sql);
         $stmt->bindParam(":item_id", $this->item_id);
         $stmt->execute();
@@ -51,7 +51,7 @@ class Inventory_Item extends Model{
 
     }
 
-    public function update(){
+   public function update(){
         $conn = DatabaseConnection::getConnection();
         $sql = "UPDATE inventory_item SET item_name = :item_name, category = :category, description = :description, manufacuturer = :manufacuturer, created_at = :created_at WHERE item_id = :item_id";
         $stmt = $conn->prepare($sql);
@@ -64,8 +64,8 @@ class Inventory_Item extends Model{
         $stmt->bindParam(":created_at", $this->created_at);
 
         return $stmt->execute();
-        
     }
+
     public function delete(){
         $conn = DatabaseConnection::getConnection();
         $sql = "DELETE FROM inventory_item WHERE item_id = :item_id";

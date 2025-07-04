@@ -39,7 +39,7 @@ class Teller_Scanner extends Model {
 
     public function read() {
         $conn = DatabaseConnection::getConnection();
-        $sql = "SELECT * FROM teller_scanner WHERE scanner_id = :scanner_id";
+        $sql = "SELECT serial_number, model, status, branch_id, remarks, manufactured_date, warranty_expiry FROM teller_scanner WHERE scanner_id = :scanner_id";
         $stmt = $conn->prepare($sql);
         $stmt->bindParam(":scanner_id", $this->scanner_id);
         $stmt->execute();
@@ -56,6 +56,15 @@ class Teller_Scanner extends Model {
             return $result;
         }
         return false;
+    }
+
+     public static function readAll() {
+        // Implementation for reading all teller scanner records
+        $conn = DatabaseConnection::getConnection();
+        $sql = "SELECT * FROM teller_scanner ORDER BY scanner_id";
+        $stmt = $conn->prepare($sql);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
     public function update() {
@@ -81,5 +90,7 @@ class Teller_Scanner extends Model {
         $stmt->bindParam(":scanner_id", $this->scanner_id);
         return $stmt->execute();
     }
+
+   
 
 }
