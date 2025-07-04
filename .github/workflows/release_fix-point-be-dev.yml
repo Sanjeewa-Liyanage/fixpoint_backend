@@ -89,8 +89,16 @@ jobs:
                 "value": "1800"
               },
               {
-                "name": "STARTUP_COMMAND",
-                "value": "bash /home/site/wwwroot/startup.sh"
+                "name": "WEBSITES_ENABLE_APP_SERVICE_STORAGE",
+                "value": "true"
+              },
+              {
+                "name": "WEBSITE_HTTPLOGGING_RETENTION_DAYS",
+                "value": "7"
+              },
+              {
+                "name": "WEBSITES_ENABLE_APP_SERVICE_STORAGE",
+                "value": "true"
               }
             ]
           
