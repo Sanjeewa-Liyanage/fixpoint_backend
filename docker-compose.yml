@@ -1,0 +1,28 @@
+# Docker Compose file for the application
+
+services:
+  app:
+    build: .
+    ports:
+      - "80:80"
+    environment:
+      - PHP_OPCACHE_VALIDATE_TIMESTAMPS=0
+    restart: unless-stopped
+    
+  # Optional: MySQL database service
+  # Uncomment if you need a database
+  # db:
+  #   image: mysql:8.0
+  #   environment:
+  #     MYSQL_ROOT_PASSWORD: root
+  #     MYSQL_DATABASE: fixpoint
+  #     MYSQL_USER: fixpoint
+  #     MYSQL_PASSWORD: fixpoint
+  #   ports:
+  #     - "3306:3306"
+  #   volumes:
+  #     - db_data:/var/lib/mysql
+  #   restart: unless-stopped
+
+# volumes:
+#   db_data:
