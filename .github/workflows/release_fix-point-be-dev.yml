@@ -74,3 +74,23 @@ jobs:
           slot-name: 'Production'
           package: .
           
+      - name: 'Configure Azure App Service Settings'
+        uses: azure/appservice-settings@v1
+        with:
+          app-name: 'fix-point-be-dev'
+          app-settings-json: |
+            [
+              {
+                "name": "WEBSITES_ENABLE_APP_SERVICE_STORAGE",
+                "value": "true"
+              },
+              {
+                "name": "WEBSITES_CONTAINER_START_TIME_LIMIT",
+                "value": "1800"
+              },
+              {
+                "name": "STARTUP_COMMAND",
+                "value": "bash /home/site/wwwroot/startup.sh"
+              }
+            ]
+          
