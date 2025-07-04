@@ -17,10 +17,24 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install PHP extensions
-RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
+# Install PHP extensions (with PostgreSQL)
+RUN apt-get update && apt-get install -y \
+    libpq-dev \
+    nginx \
+    supervisor \
+    git \
+    unzip \
+    curl \
+    libpng-dev \
+    libjpeg62-turbo-dev \
+    libfreetype6-dev \
+    libzip-dev \
+    libonig-dev \
+    libxml2-dev \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j$(nproc) gd \
-    && docker-php-ext-install pdo_mysql mysqli mbstring exif pcntl bcmath zip
-
+    && docker-php-ext-install pdo_pgsql pgsql mbstring exif pcntl bcmath zip \
+    && rm -rf /var/lib/apt/lists/*
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
