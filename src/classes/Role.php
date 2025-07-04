@@ -95,6 +95,15 @@ public function delete(){
         }
     }
 
+    public static function get_all_roleIds(){
+        $conn = DatabaseConnection::getConnection();
+        $sql = "SELECT role_id, role_name FROM roles";
+        $stmt = $conn->prepare($sql);
+        $stmt->execute();
+        $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return $result;
+    }
+
     
 
 }
