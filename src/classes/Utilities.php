@@ -51,7 +51,14 @@ class Utilities extends Model{
         }
         return false;
     }
-
+ public static function readAll() {
+        // Implementation for reading all utilities records
+        $conn = DatabaseConnection::getConnection();
+        $sql = "SELECT * FROM utilities ORDER BY utility_id";
+        $stmt = $conn->prepare($sql);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
     public function update(){
         $conn = DatabaseConnection::getConnection();
         $sql = "UPDATE utilities SET utility_name = :utility_name, description = :description, download_link = :download_link, updated_at = :updated_at WHERE utility_id = :utility_id";
@@ -73,4 +80,6 @@ class Utilities extends Model{
         $stmt->bindParam(":utility_id", $this->utility_id);
         return $stmt->execute();
     }
+
+    
 }

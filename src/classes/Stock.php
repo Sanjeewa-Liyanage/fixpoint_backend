@@ -34,15 +34,31 @@ class Stock extends Model {
     public function read() {
         // Implementation for reading a stock record
         $conn = DatabaseConnection::getConnection();
-        $sql = "SELECT * FROM stock WHERE stock_id = :stock_id";    
+        $sql = "SELECT item_id, quantity, location, min_threshold, last_updated FROM stock WHERE stock_id = :stock_id";
         $stmt = $conn->prepare($sql);
         $stmt->bindParam(":stock_id", $this->stock_id);
         $stmt->execute();
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($result) {
+            $this->item_id = $result['item_id'];
+            $this->quantity = $result['quantity'];
+            $this->location = $result['location'];
+            $this->min_threshold = $result['min_threshold'];
+            $this->last_updated = $result['last_updated'];
 
-            return $result 
-            ;
+
+            return $result;
         }
+        return false;
+    }
+     public static function readAll() {
+        // Implementation for reading all stock records
+        $conn = DatabaseConnection::getConnection();
+        $sql = "SELECT * FROM stock ORDER BY stock_id";
+        $stmt = $conn->prepare($sql);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
 
     public function update() {
         // Implementation for updating a stock record
@@ -68,4 +84,6 @@ class Stock extends Model {
 
         return $stmt->execute();
     }
+
+    
 }
