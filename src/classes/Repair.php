@@ -53,29 +53,12 @@ public function read(){
           FROM repair r 
           LEFT JOIN users u ON r.technician_id = u.user_id 
           LEFT JOIN branch b ON r.branch_id = b.branch_id 
-          WHERE r.repair_id = :repair_id";
+          ORDER BY r.repair_id DESC";
   $stmt = $conn->prepare($sql);
-  $stmt->bindParam("repair_id", $this->repair_id);
   $stmt->execute();
-  $result = $stmt->fetch(PDO::FETCH_ASSOC);
-
-  if ($result) {
-    $this->device_type = $result['device_type'];
-    $this->device_id = $result['device_id'];
-    $this->branch_id = $result['branch_id'];
-    $this->technician_id = $result['technician_id'];
-    $this->start_time = $result['start_time'];
-    $this->end_time = $result['end_time'];
-    $this->status = $result['status'];
-    $this->summary = $result['summary'];
-    $this->virtual_support_link = $result['virtual_support_link'];
-    $this->backup_sent = $result['backup_sent'];
-    $this->visit_required = $result['visit_required'];
-    $this->technician_name = $result['technician_name'];
-    $this->branch_name = $result['branch_name'];
-    return true;
-  }
-  return false;
+  $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+  
+  return $results;
 }
 
 public function readAll(){
@@ -107,6 +90,41 @@ $stmt->bindParam(':visit_required', $this->visit_required);
 $success = $stmt->execute();
 return $success;
 
+}
+
+public function updateAll(){
+    $conn = DatabaseConnection::getConnection();
+    
+    $sql = 'UPDATE repair SET 
+            device_type = :device_type,
+            device_id = :device_id,
+            branch_id = :branch_id,
+            technician_id = :technician_id,
+            start_time = :start_time,
+            end_time = :end_time,
+            status = :status,
+            summary = :summary,
+            virtual_support_link = :virtual_support_link,
+            backup_sent = :backup_sent,
+            visit_required = :visit_required
+            WHERE repair_id = :repair_id';
+    
+    $stmt = $conn->prepare($sql);
+    $stmt->bindParam(':repair_id', $this->repair_id);
+    $stmt->bindParam(':device_type', $this->device_type);
+    $stmt->bindParam(':device_id', $this->device_id);
+    $stmt->bindParam(':branch_id', $this->branch_id);
+    $stmt->bindParam(':technician_id', $this->technician_id);
+    $stmt->bindParam(':start_time', $this->start_time);
+    $stmt->bindParam(':end_time', $this->end_time);
+    $stmt->bindParam(':status', $this->status);
+    $stmt->bindParam(':summary', $this->summary);
+    $stmt->bindParam(':virtual_support_link', $this->virtual_support_link);
+    $stmt->bindParam(':backup_sent', $this->backup_sent);
+    $stmt->bindParam(':visit_required', $this->visit_required);
+    
+    $success = $stmt->execute();
+    return $success;
 }
 
 public function delete(){
