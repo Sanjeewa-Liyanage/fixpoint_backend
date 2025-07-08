@@ -76,26 +76,19 @@ class RoleApi extends ApiResourceBase{
             ];
         }
         
-        $missing = $this->validateFields($data, ['role_id']);
-        if (!empty($missing)) {
-            return [
-                "status" => "error",
-                "message" => "Invalid Request. Missing fields: " . implode(", ", $missing)
-            ];
-        }
-       
-        $role = new Role($data['role_id']);
-        $success = $role->read();
+        $role = new Role();
+        $result = $role->read();
         
-        if($success) {
+        if($result) {
             return [
                 "status" => "success",
-                "data" => $role
+                "message" => "Roles retrieved successfully",
+                "data" => $result
             ];
         } else {
             return [
                 "status" => "error",
-                "message" => "Failed to read role"
+                "message" => "No roles found"
             ];
         }
     }
