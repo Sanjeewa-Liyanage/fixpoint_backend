@@ -22,15 +22,19 @@ return $success;
 }
 public function read(){
     $conn = DatabaseConnection::getConnection();
-    $sql = "SELECT * FROM roles WHERE role_id = :role_id";
+    $sql = "SELECT r.role_id, r.role_name, r.description, COUNT(u.user_id) as user_count 
+            FROM roles AS r 
+            LEFT JOIN users AS u ON r.role_id = u.role_id 
+            GROUP BY r.role_id, r.role_name, r.description";
     $stmt = $conn->prepare($sql);
-    $stmt -> bindParam(":role_id", $this->role_id);
-    $stmt -> execute();
-    $result = $stmt -> fetch(PDO::FETCH_ASSOC);
-    $this->role_name = $result['role_name'];
-    $this->description = $result['description'];
-    return $result['role_id'] !== null; 
+    $stmt->execute();
+    $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
+    if (empty($result)) {
+        return false; // No roles found
+    }
+    
+    return $result;
 }
 public function update(){
     $conn = DatabaseConnection::getConnection();
@@ -97,7 +101,7 @@ public function delete(){
 
     public static function get_all_roleIds(){
         $conn = DatabaseConnection::getConnection();
-        $sql = "SELECT role_id, role_name FROM roles";
+        $sql = "SELECT role_id, role_name ,description FROM roles";
         $stmt = $conn->prepare($sql);
         $stmt->execute();
         $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
