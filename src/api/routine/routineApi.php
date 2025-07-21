@@ -8,6 +8,7 @@ class RoutineApi extends ApiResourceBase{
             'read' => ['admin', 'Technician', ],
             'update' => ['admin', ],
             'technicianCount' => ['admin', 'Technician'],
+            'getAll' => ['admin', 'Technician'],
             
         ]);
     }
@@ -141,6 +142,18 @@ class RoutineApi extends ApiResourceBase{
         return [
             'status' => 'success',
             'technician_count' => $count
+        ];
+    }
+    public function getAll($data) {
+        $user = $this->getAuthenticatedUser();
+        if (!$user || !$this->checkRoles($user['role_name'], 'getAll')) {
+            return ['status' => 'error', 'message' => 'Unauthorized'];
+        }
+
+        $routines = Routine::getAllRoutines();
+        return [
+            'status' => 'success',
+            'routines' => $routines
         ];
     }
 

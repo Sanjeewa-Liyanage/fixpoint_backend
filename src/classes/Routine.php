@@ -588,6 +588,35 @@ private function formatClusterOutput($finalClustersWithData, $branches) {
         curl_close($ch);
         return $output;
     }
+
+    static public function getAllRoutines(){
+        $conn = DatabaseConnection::getConnection();
+        $sql = "SELECT * FROM routines";
+        $stmt = $conn->prepare($sql);
+        $stmt->execute();
+        $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        if (!$results) {
+            return [];
+        }
+
+        $routines = [];
+        foreach ($results as $row) {
+            $routine = new Routine(
+                $row['id'],
+                $row['planned_date'],
+                $row['status'],
+                $row['description'],
+                $row['response_count'],
+                json_decode($row['branches'], true)
+            );
+            $routines[] = $routine;
+        }
+        
+        return $routines;
+    }
+
+    
 }
 
 
