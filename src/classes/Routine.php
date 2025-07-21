@@ -315,11 +315,7 @@ private function buildRoutesFromBranchList($branchIndicesToProcess, $branches, $
         return $finalClusters;
     }
 
-    /**
-     * OPTIMIZED HELPER
-     * Finds the single nearest unassigned branch to a given branch using Haversine distance.
-     * This is very fast as it does not use an API.
-     */
+    
     private function findNearestUnassignedBranch($fromBranchIndex, $unassignedIndices, $branches, $haversine) {
         $minDist = INF;
         $bestBranch = -1;
@@ -386,7 +382,7 @@ private function getOptimizedRouteTravelTime($clusterIndices, $branches) {
     $destination = $origin;
     $waypoints = implode('|', $coords);
     
-    $apiKey = self::GOOGLE_MAPS_API_KEY; // Use your key here
+    $apiKey = self::GOOGLE_MAPS_API_KEY; 
 
     $url = "https://maps.googleapis.com/maps/api/directions/json?origin={$origin}&destination={$destination}&waypoints=optimize:true|{$waypoints}&key={$apiKey}";
 
@@ -408,16 +404,15 @@ private function getOptimizedRouteTravelTime($clusterIndices, $branches) {
     /**
      * Parses the total travel duration from a Google Directions API response.
      */
-    // Replace your existing parseTravelTimeFromDirections with this improved version
+    
     private function parseTravelTimeFromDirections($json) {
-        // First, check if the input is a valid string. If not, we can't do anything.
         if (empty($json) || !is_string($json)) {
             return 0;
         }
 
         $data = json_decode($json, true);
 
-        // Now check if the JSON was valid and has the data we need
+
         if (json_last_error() !== JSON_ERROR_NONE || !isset($data['routes'][0]['legs'])) {
             // The response was not a valid route, maybe an error from Google.
             // The debug.log file will show the actual error message from Google.
@@ -433,14 +428,7 @@ private function getOptimizedRouteTravelTime($clusterIndices, $branches) {
         return $totalSeconds;
     }
     
-    /**
-     * Formats the final clusters into a user-friendly output array.
-     */
-    // In class Routine
-
-/**
- * MODIFIED: To use cached travel times, reducing redundant API calls.
- */
+   
 private function formatClusterOutput($finalClustersWithData, $branches) {
     $namedClusters = [];
     $technicianCount = 0;
@@ -461,8 +449,10 @@ private function formatClusterOutput($finalClustersWithData, $branches) {
         }
         
         // *** PERFORMANCE BOOST: Use the pre-calculated travel time ***
+
+
         $travelMinutes = $clusterData['travel_time'];
-        $serviceMinutes = count($clusterIndices) * 40; // Hardcoded from above
+        $serviceMinutes = count($clusterIndices) * 40; // Assuming 40 minutes per service
         
         $namedClusters['Technician ' . $technicianCount] = [
             'branches' => $branchDetails,
@@ -482,7 +472,7 @@ private function formatClusterOutput($finalClustersWithData, $branches) {
     // --- Helper Functions for Initial K-Means Clustering ---
 
     private function optimizeClustersWithCentroids($branches, $initialCentroids, $maxBranchesPerTech, $haversine) {
-        // ... (This function is good, no changes needed)
+    
         $branchCount = count($branches);
         $numClusters = count($initialCentroids);
         $maxIterations = 20;
@@ -562,7 +552,7 @@ private function formatClusterOutput($finalClustersWithData, $branches) {
     }
 
     private function initializeCentroids($branches, $numClusters) {
-        // ... (This function is good, no changes needed)
+      
         $centroids = [];
         $branchCount = count($branches);
         if ($branchCount == 0) return [];
@@ -578,7 +568,7 @@ private function formatClusterOutput($finalClustersWithData, $branches) {
         return $centroids;
     }
     
-    // Replace your existing fetchGoogleApi with this
+   
     private function fetchGoogleApi($url) {
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $url);
@@ -587,7 +577,7 @@ private function formatClusterOutput($finalClustersWithData, $branches) {
         curl_setopt($ch, CURLOPT_USERAGENT, 'YourApp/1.0');
         $output = curl_exec($ch);
 
-        // This is the important part!
+        
         if(curl_errno($ch)){
             // Log the SPECIFIC cURL error to your PHP error log
             error_log('cURL error in Routine class: ' . curl_error($ch));
