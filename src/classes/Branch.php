@@ -96,17 +96,31 @@ class Branch extends Model{
 
     
     public function update(){
-        $conn =DatabaseConnection::getConnection();
-        $sql = 'UPDATE branch SET  name = :name, contact_person = :contact_person, phone = :phone, email = :email WHERE branch_id = :branch_id';
+        $conn = DatabaseConnection::getConnection();
+        $sql = 'UPDATE branch SET 
+                client_id = :client_id,
+                name = :name, 
+                address = :address,
+                latitude = :latitude,
+                longitude = :longitude,
+                location = :location,
+                contact_person = :contact_person, 
+                phone = :phone, 
+                email = :email 
+                WHERE branch_id = :branch_id';
         $stmt = $conn->prepare($sql);
         $stmt->bindParam(':branch_id', $this->branch_id);
+        $stmt->bindParam(':client_id', $this->client_id);
         $stmt->bindParam(':name', $this->name);
+        $stmt->bindParam(':address', $this->address);
+        $stmt->bindParam(':latitude', $this->latitude);
+        $stmt->bindParam(':longitude', $this->longitude);
+        $stmt->bindParam(':location', $this->location);
         $stmt->bindParam(':contact_person', $this->contact_person);
         $stmt->bindParam(':phone', $this->phone);
         $stmt->bindParam(':email', $this->email);
         $success = $stmt->execute();
-        return  $success;
-
+        return $success;
     }
     public static function getByClientId($client_id) {
         $conn = DatabaseConnection::getConnection();
@@ -123,6 +137,16 @@ class Branch extends Model{
         $sql = "SELECT * FROM branch WHERE branch_id = :branch_id";
         $stmt = $conn->prepare($sql);
         $stmt->bindParam(":branch_id", $branch_id);
+        $stmt->execute();
+        $branch = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $branch;
+    }
+
+    public static function getByName($name) {
+        $conn = DatabaseConnection::getConnection();
+        $sql = "SELECT * FROM branch WHERE name = :name";
+        $stmt = $conn->prepare($sql);
+        $stmt->bindParam(":name", $name);
         $stmt->execute();
         $branch = $stmt->fetch(PDO::FETCH_ASSOC);
         return $branch;

@@ -27,16 +27,19 @@ class RepairApi extends ApiResourceBase {
             ];
         }
 
-        $missing = $this->validateFields($data, ['device_type', 'device_id', 'branch_id', 'technician_id', 'start_time', 'virtual_support_link']);
-         // Ensure all required fields are present
-        if (!empty($missing)) {
+
+
+        //  to get branch_id from branch_name
+        $branch = Branch::getByName($data['branch_name']);
+        if (!$branch) {
             return [
                 "status" => "error",
-                "message" => "Invalid Request. Missing fields: " . implode(", ", $missing)
+                "message" => "Branch not found with name: " . $data['branch_name']
             ];
         }
+        $branch_id = $branch['branch_id'];
 
-        $repair = new Repair(null, $data['device_type'], $data['device_id'], $data['branch_id'], $data['technician_id'], $data['start_time'],null,null,null, $data['virtual_support_link']);
+        $repair = new Repair(null, $data['device_type'], $data['device_id'], $branch_id, $data['technician_id'], $data['start_time'],null,null,null, $data['virtual_support_link']);
         $success = $repair->create();
 
         if ($success) {
@@ -138,21 +141,15 @@ class RepairApi extends ApiResourceBase {
                 "message" => "Unauthorized: Admin or Technician access required"
             ];
         }
-        $missing = $this->validateFields($data, ['repair_id', 'status', 'summary', 'virtual_support_link', 'backup_sent', 'visit_required', 'end_time', 'technician_id']);
-        if (!empty($missing)) {
-            return [
-                "status" => "error",
-                "message" => "Invalid Request. Missing fields: " . implode(", ", $missing)
-            ];
-        }
-        // Pass all fields in correct order to Repair constructor
+
+        //  To Pass correct order to Repair constructor
         $repair = new Repair(
             $data['repair_id'],
-            null, // device_type (not updated here)
-            null, // device_id (not updated here)
-            null, // branch_id (not updated here)
+            null, // device_type 
+            null, // device_id 
+            null, // branch_id 
             $data['technician_id'],
-            null, // start_time (not updated here)
+            null, // start_time 
             $data['end_time'],
             $data['status'],
             $data['summary'],
@@ -190,29 +187,9 @@ class RepairApi extends ApiResourceBase {
             ];
         }
         
-        $missing = $this->validateFields($data, [
-            'repair_id', 
-            'device_type', 
-            'device_id', 
-            'branch_id', 
-            'technician_id', 
-            'start_time', 
-            'end_time', 
-            'status', 
-            'summary', 
-            'virtual_support_link', 
-            'backup_sent', 
-            'visit_required'
-        ]);
+
         
-        if (!empty($missing)) {
-            return [
-                "status" => "error",
-                "message" => "Invalid Request. Missing fields: " . implode(", ", $missing)
-            ];
-        }
-        
-        // Create repair object with all fields
+        // Create repair with all fields
         $repair = new Repair(
             $data['repair_id'],
             $data['device_type'],
@@ -258,13 +235,7 @@ class RepairApi extends ApiResourceBase {
             ];
         }
 
-        $missing = $this->validateFields($data, ['repair_id']);
-        if (!empty($missing)) {
-            return [
-                "status" => "error",
-                "message" => "Invalid Request. Missing fields: " . implode(", ", $missing)
-            ];
-        }
+
 
         $repair = new Repair($data['repair_id']);
         $success = $repair->delete();

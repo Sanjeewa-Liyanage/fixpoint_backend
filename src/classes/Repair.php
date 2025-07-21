@@ -12,8 +12,8 @@ class Repair extends Model {
     public $virtual_support_link;
     public $backup_sent;
     public $visit_required;
-    public $technician_name; // Added to store technician name from JOIN
-    public $branch_name; // Added to store branch name from JOIN
+    public $technician_name; //  technician name from joinn
+    public $branch_name; // branch name from join
 
     public function __construct($repair_id = null, $device_type = null, $device_id = null, $branch_id = null, $technician_id = null, $start_time = null, $end_time = null, $status = null, $summary = null, $virtual_support_link = null, $backup_sent = null, $visit_required = null) {
         $this->repair_id = $repair_id;
