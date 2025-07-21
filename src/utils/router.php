@@ -25,10 +25,15 @@ class Router
     private function parseURL()
     {
         $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-        $url = explode('/', $path);
-        $this->group = isset($url[2]) ? $url[2] : null;
-        $this->resource = isset($url[3]) ? $url[3] : null;
-        $this->action = isset($url[4]) ? $url[4] : null;
+        $parts = array_values(array_filter(explode('/', $path)));
+
+        if (isset($parts[0]) && $parts[0] === 'fixpoint-be-php') {
+            array_shift($parts);
+        }
+        
+        $this->group = isset($parts[0]) ? $parts[0] : null;
+        $this->resource = isset($parts[1]) ? $parts[1] : null;
+        $this->action = isset($parts[2]) ? $parts[2] : null;
     }
 
     private function parseSession()

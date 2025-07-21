@@ -6,6 +6,7 @@ class Teller_ScannerApi extends ApiResourceBase {
         $this->setRoles([
             "create" => ['admin','technician'],
             "read" => [ 'admin','technician'],
+            "readAll" => ['admin','technician'],
             "update" => ['admin','technician'],
             "delete" => ['admin']
         ]);
@@ -186,6 +187,42 @@ $success = $scanner->delete();
             return [
                 'message' => 'Failed to delete Teller Scanner',
                 'status' => 'error'
+            ];
+        }
+    }
+
+    public function readAll($data = null) {
+        $user = $this->getAuthenticatedUser();
+        if (!$user) {
+            return [
+                'message' => 'Invalid or expired token. Please log in again.',
+                'status' => 'error'
+            ];
+        }
+
+        if (!$this->checkRoles($user['role_name'], 'readAll')) {
+            return [
+                'message' => 'Unauthorized: Access denied',
+                'status' => 'error'
+            ];
+        }
+
+        // Get all teller scanner records
+        $results = Teller_Scanner::readAll();
+
+        if ($results) {
+            return [
+                'message' => 'All Teller Scanners retrieved successfully',
+                'status' => 'success',
+                'data' => $results,
+                'count' => count($results)
+            ];
+        } else {
+            return [
+                'message' => 'No Teller Scanners found',
+                'status' => 'success',
+                'data' => [],
+                'count' => 0
             ];
         }
     }

@@ -12,6 +12,7 @@ class RoleApi extends ApiResourceBase{
             "get_by_id"=> ["admin"],
             "getall"=> ["admin"],
             "assign_role"=> ["admin"],
+            "get_all_roleIds" => ["admin"]
             
         ]);
         
@@ -75,26 +76,19 @@ class RoleApi extends ApiResourceBase{
             ];
         }
         
-        $missing = $this->validateFields($data, ['role_id']);
-        if (!empty($missing)) {
-            return [
-                "status" => "error",
-                "message" => "Invalid Request. Missing fields: " . implode(", ", $missing)
-            ];
-        }
-       
-        $role = new Role($data['role_id']);
-        $success = $role->read();
+        $role = new Role();
+        $result = $role->read();
         
-        if($success) {
+        if($result) {
             return [
                 "status" => "success",
-                "data" => $role
+                "message" => "Roles retrieved successfully",
+                "data" => $result
             ];
         } else {
             return [
                 "status" => "error",
-                "message" => "Failed to read role"
+                "message" => "No roles found"
             ];
         }
     }
@@ -301,5 +295,33 @@ class RoleApi extends ApiResourceBase{
         }
 
 
+    }
+    public function get_all_roleIds() {
+        $user = $this->getAuthenticatedUser();
+        if (!$user) {
+            return [
+                "status" => "error",
+                "message" => "Invalid authentication token"
+            ];
+        }
+        $roleName = isset($user['role_name']) ? $user['role_name'] : (isset($user['role']['role_name']) ? $user['role']['role_name'] : null);
+        if (!$this->checkRoles($roleName, 'get_all_roleIds')) {
+            return [
+                "status" => "error",
+                "message" => "Unauthorized: Admin access required"
+            ];
+        }
+        $result = Role::get_all_roleIds();
+        if ($result) {
+            return [
+                "status" => "success",
+                "data" => $result
+            ];
+        } else {
+            return [
+                "status" => "error",
+                "message" => "No role IDs found."
+            ];
+        }
     }
 }

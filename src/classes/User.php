@@ -20,14 +20,13 @@ class User extends Model{
     }
      public function create(){
         $conn = DatabaseConnection::getConnection();
-        $sql = "INSERT INTO users (username, email, password, phone, profile_picture, role_id) VALUES (:username, :email, :password, :phone, :profile_picture, :role_id)";
+        $sql = "INSERT INTO users (username, email, password, phone, profile_picture) VALUES (:username, :email, :password, :phone, :profile_picture)";
         $stmt = $conn->prepare($sql);
         $stmt -> bindParam(":email", $this->email);
         $stmt -> bindParam(":username", $this->username);
         $stmt -> bindParam(":password", $this->password);
         $stmt -> bindParam(":phone", $this->phone);
         $stmt -> bindParam(":profile_picture", $this->profile_picture);
-        $stmt -> bindParam(":role_id", $this->role_id);
         $success = $stmt -> execute();
         return $success;
        
@@ -37,17 +36,22 @@ class User extends Model{
 
     public function read() {
         $conn = DatabaseConnection::getConnection();
-        $sql ="SELECT u.user_id, u.username, u.email, u.phone, u.profile_picture, u.role_id, role.role_name FROM users AS u JOIN roles AS role ON u.role_id = role.role_id WHERE u.user_id = :id";
+        $sql ="SELECT u.user_id, u.username, u.email, u.phone, u.profile_picture, u.role_id, role.role_name FROM users AS u LEFT JOIN roles AS role ON u.role_id = role.role_id WHERE u.user_id = :id";
         $stmt = $conn->prepare($sql);
         $stmt->bindParam(':id', $this->id);
         $stmt->execute();
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($result === false) {
+            return false; // User not found
+        }
+        
         $this->username = $result['username'];
         $this->email = $result['email'];
         $this->phone = $result['phone'];
         $this->profile_picture = $result['profile_picture'];
         $this->role_id = $result['role_id'];
-        return $result['email'] !== null; 
+        return true; 
     }
 
 
@@ -59,12 +63,17 @@ class User extends Model{
         $stmt->bindParam(':email', $this->email);
         $stmt->execute();
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($result === false) {
+            return false; // User not found
+        }
+        
         $this->id = $result['user_id'];
         $this->username = $result['username'];
         $this->phone = $result['phone'];
         $this->profile_picture = $result['profile_picture'];
         $this->role_id = $result['role_id'];
-        return $result['email'] !== null;
+        return true;
         
     }
     public static function get_all($email, $limit, $page){
@@ -76,6 +85,17 @@ class User extends Model{
         $stmt = $conn->prepare($sql);
         $email = "%". $email ."%";
         $stmt->bindParam(":email", $email, PDO::PARAM_STR);
+        $stmt->execute();
+        $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return $result;
+    }
+
+    public static function get_All_Users(){
+        $conn = DatabaseConnection::getConnection();
+        $sql = "SELECT u.user_id, u.username, u.email, u.phone, u.profile_picture, u.role_id, role.role_name 
+                FROM users AS u 
+                LEFT JOIN roles AS role ON u.role_id = role.role_id";
+        $stmt = $conn->prepare($sql);
         $stmt->execute();
         $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
         return $result;
