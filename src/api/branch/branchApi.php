@@ -7,6 +7,7 @@ class BranchApi extends ApiResourceBase{
             "read_branch" => ["admin","technician"],
             "read_branch_by_id" => ["admin","technician"],
             "delete_branch" => ["admin"],
+            "update_branch" => ["admin"],
             "update_branch_name" => ["admin"],
             "update_branch_contact_person" => ["admin"],
             "update_branch_phone" => ["admin"],
@@ -205,6 +206,77 @@ class BranchApi extends ApiResourceBase{
         }
 
     }
+
+    public function update_branch($data) {
+        $user = $this->getAuthenticatedUser();
+        if(!$user){
+            return [
+                "status" => "error",
+                "message" => "Invalid authentication token"
+            ];
+        }
+        if(!$this->checkRoles($user['role_name'], 'update_branch')){
+            return [
+                "status" => "error",
+                "message" => "Unauthorized: Admin access required"
+            ];
+        }
+
+        // First, get the existing branch data
+        $branch = new Branch($data['branch_id']);
+        $success = $branch->read();
+        
+        if (!$success) {
+            return [
+                "status" => "error",
+                "message" => "Branch not found."
+            ];
+        }
+
+        // Update only the fields that are provided in the request
+        if (isset($data['client_id'])) {
+            $branch->client_id = $data['client_id'];
+        }
+        if (isset($data['name'])) {
+            $branch->name = $data['name'];
+        }
+        if (isset($data['address'])) {
+            $branch->address = $data['address'];
+        }
+        if (isset($data['latitude'])) {
+            $branch->latitude = $data['latitude'];
+        }
+        if (isset($data['longitude'])) {
+            $branch->longitude = $data['longitude'];
+        }
+        if (isset($data['location'])) {
+            $branch->location = $data['location'];
+        }
+        if (isset($data['contact_person'])) {
+            $branch->contact_person = $data['contact_person'];
+        }
+        if (isset($data['phone'])) {
+            $branch->phone = $data['phone'];
+        }
+        if (isset($data['email'])) {
+            $branch->email = $data['email'];
+        }
+
+        $updateSuccess = $branch->update();
+        
+        if ($updateSuccess) {
+            return [
+                "status" => "success",
+                "message" => "Branch updated successfully."
+            ];
+        } else {
+            return [
+                "status" => "error",
+                "message" => "Failed to update branch."
+            ];
+        }
+    }
+
     public function update_branch_name($data) {
         $user = $this->getAuthenticatedUser();
         if(!$user){
