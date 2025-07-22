@@ -9,7 +9,10 @@ class ChdmApi extends ApiResourceBase{
         "update_status" => ["admin", "quality_checker"],
         "update_location" => ["admin", "quality_checker"],
         "update_branch_id" => ["admin", "quality_checker"],
-        "delete" => ["admin"]
+        "delete" => ["admin"],
+        "view_all_chdm" => ["admin"],
+        "update_all_chdm" => ["admin"],
+        "get_not_assigned" => ["admin", "quality_checker","technician"]
        ]); 
     }
 
@@ -67,14 +70,14 @@ public function view_passes_chdm($data){
             "status" => "error"
         ];
     }
-    $missing = $this->validateFields($data,["state"]);
+   // $missing = $this->validateFields($data,["state"]);
         
-        if (!empty($missing)) {
-            return [
-                "message" => "Missing required fields: " . implode(", ", $missing),
-                "status" => "error"
-            ];
-        }
+      //  if (!empty($missing)) {
+          //  return [
+           //     "message" => "Missing required fields: " . implode(", ", $missing),
+             //   "status" => "error"
+          //  ];
+      //  }
    $chdm = new Chdm();
    $result = $chdm->read();
    if($result){
@@ -192,7 +195,7 @@ public function update_location($data) {
     }
 
     $chdm = new Chdm($data['serial_no'], null, null, $data['location']);
-    $success = $chdm->update_location($data['location']);
+    $success = $chdm->Update_location($data['location']);
     if ($success) {
         return [
             "status"=> "success",
@@ -229,7 +232,7 @@ public function update_branch_id($data) {
         ];
     }
     $chdm = new Chdm($data["serial_no"], null,$data["branch_id"]);
-    $success = $chdm->update_branch_id($data["branch_id"]);
+    $success = $chdm->Update_branch_id($data["branch_id"]);
     if ($success) {
         return [
             "status"=> "success",
@@ -268,7 +271,7 @@ public function update_branch_id($data) {
                 "status"=> "error"
             ];
         }
-        $chdm = new Chdm($data['serial_no']);
+        $chdm = new Chdm(null, $data['serial_no']);
         $success = $chdm->delete();
         if ($success) {
             return [
@@ -283,6 +286,165 @@ public function update_branch_id($data) {
         }
     }
 
+public function assignForBranch($data) {
+        $user = $this->getAuthenticatedUser();
+        if (!$user) {
+            return [
+                "message"=> "Invalid or expired token. Please log in again.",
+                "status"=> "error"
+            ];
+        }
+
+        if (!$this->checkRoles($user["role_name"], "assign_for_branch")){
+            return [
+                "message"=> "Unauthorized: Admin access required",
+                "status"=> "error"
+            ];
+        }
+
+        $missing = $this->validateFields($data, ["serial_no", "branch_id"]);
+
+        if (!empty($missing)) {
+            return [
+                "message"=> "Missing required fields: " . implode(", ", $missing),
+                "status"=> "error"
+            ];
+        }
+
+        $chdm = new Chdm(null, $data['serial_no'], null, null, null, null, $data['branch_id']);
+        $success = $chdm->assignForBranch();
+        
+        if ($success) {
+            return [
+                "status"=> "success",
+                "message"=> "CHDM assigned to branch successfully"
+            ];
+        } else {
+            return [
+                "message"=> "Failed to assign CHDM to branch",
+                "status"=> "error"
+            ];
+        }
+    }
+
+
+    public function view_all_chdm($data) {
+        $user = $this->getAuthenticatedUser();
+        if (!$user) {
+            return [
+                "message"=> "Invalid or expired token. Please log in again.",
+                "status"=> "error"
+            ];
+        }
+
+        if (!$this->checkRoles($user["role_name"], "view_all_chdm")){
+            return [
+                "message"=> "Unauthorized: Admin access required",
+                "status"=> "error"
+            ];
+        }
+
+        $chdm = new Chdm();
+        $result = $chdm->readAll();
+        if ($result) {
+            return [
+                "status"=> "success",
+                "message"=> "All CHDM records retrieved successfully",
+                "data"=> $result
+            ];
+        } else {
+            return [
+                "message"=> "No CHDM records found",
+                "status"=> "error"
+            ];
+        }
+    }
+    public function get_not_assigned() {
+        $user = $this->getAuthenticatedUser();
+        if (!$user) {
+            return [
+                "message"=> "Invalid or expired token. Please log in again.",
+                "status"=> "error"
+            ];
+        }
+        $chdm = new Chdm();
+        $result = $chdm::getNotAssigned();
+        if ($result) {
+            return [
+                "status"=> "success",
+                "message"=> "CHDM records not assigned to any branch retrieved successfully",
+                "data"=> $result
+            ];
+        } else {
+            return [
+                "message"=> "No CHDM records found",
+                "status"=> "error"
+            ];
+        }
+    }
+
+
+  public function update_all_chdm($data) {
+        $user = $this->getAuthenticatedUser();
+        if (!$user) {
+            return [
+                "message"=> "Invalid or expired token. Please log in again.",
+                "status"=> "error"
+            ];
+        }
+
+        if (!$this->checkRoles($user["role_name"], "update_all_chdm")){
+            return [
+                "message"=> "Unauthorized: Admin access required",
+                "status"=> "error"
+            ];
+        }
+
+        $missing = $this->validateFields($data, ["id"]);
+        if (!empty($missing)) {
+            return [
+                "message"=> "Missing required fields: " . implode(", ", $missing),
+                "status"=> "error"
+            ];
+        }
+
+        $chdm = new Chdm();
+        $allChdm = $chdm->readAll();
+        $existingChdm = null;
+
+        foreach ($allChdm as $inst) {
+            if ($inst['id'] == $data['id']) {
+                $existingChdm = $inst;
+                break;
+            }
+        }
+
+        $chdm = new Chdm(
+            $data['id'],
+            isset($data['serial_no']) ? $data['serial_no'] : $existingChdm['serial_no'],
+            isset($data['state']) ? $data['state'] : $existingChdm['state'],
+            isset($data['location']) ? $data['location'] : $existingChdm['location'],
+            isset($data['description']) ? $data['description'] : $existingChdm['description'],
+            isset($data['tested_date']) ? $data['tested_date'] : $existingChdm['tested_date'],
+            isset($data['branch_id']) ? $data['branch_id'] :$existingChdm['branch_id']
+        );
+        
+        $success = $chdm->update_all();
+        
+        if ($success) {
+            return [
+                "status"=> "success",
+                "message"=> "CHDM record updated successfully"
+            ];
+        } else {
+            return [
+                "message"=> "Failed to update CHDM record",
+                "status"=> "error"
+            ];
+        }
+    }
+
+    
 }
 
 

@@ -50,6 +50,41 @@ class BranchApi extends ApiResourceBase{
             ];
         }
     }
+    public function getByName($data) {
+        $user = $this->getAuthenticatedUser();
+        if(!$user){
+            return [
+                "status" => "error",
+                "message" => "Invalid authentication token"
+            ];
+        }
+        if(!$this->checkRoles($user['role_name'], 'read_branch')){
+            return [
+                "status" => "error",
+                "message" => "Unauthorized: Admin or technician access required"
+            ];
+        }
+        $missing = $this->validateFields($data, ['name']);
+        if(!empty($missing)){
+            return [
+                "status" => "error",
+                "message" => "Invalid Request. Missing fields: " . implode(", ", $missing)
+            ];
+        }
+        $branch = Branch::getByName($data['name']);
+        if ($branch) {
+            return [
+                "status" => "success",
+                "message" => "Branch found.",
+                "data" => $branch
+            ];
+        } else {
+            return [
+                "status" => "error",
+                "message" => "Branch not found."
+            ];
+        }
+    }
 
     public function read_branch($data){
         // Ensure $data is always an array

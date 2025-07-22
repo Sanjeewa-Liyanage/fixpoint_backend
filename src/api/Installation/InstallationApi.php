@@ -12,6 +12,7 @@
             "update_notes" => ["admin", "technician"],
             "delete_installation" => ["admin"],
             "view_all_installations" => ["admin"],
+            "update_all_installations" => ["admin"],
         ]);
     }
     public function create_installation($data) {
@@ -30,7 +31,7 @@
             ];
         }
 
-        $missing = $this->validateFields($data, ["chdm_id", "branch_id", "status", "date", "software_version", "ip_address","notes"]);
+        $missing = $this->validateFields($data, ["branch_id", "status", "date", "software_version", "ip_address", "notes", "serial_no"]);
         if (!empty($missing)) {
             return [
                 "message" => "Missing required fields: " . implode(", ", $missing),
@@ -39,9 +40,8 @@
         }
 
         // Get technician_id from JWT token
-        // Debug: Check what's in the user array
         error_log("User data: " . print_r($user, true));
-        
+
         // Try different possible key names for user ID
         $technician_id = null;
         if (isset($user['user_id'])) {
@@ -51,7 +51,7 @@
         } elseif (isset($user['uid'])) {
             $technician_id = $user['uid'];
         }
-        
+
         if (!$technician_id) {
             return [
                 "message" => "Unable to identify technician from token",
@@ -59,16 +59,67 @@
             ];
         }
 
-        $installation = new Installation(null, $data['chdm_id'], $data['branch_id'], $technician_id, $data['status'], $data['date'], $data['software_version'], $data['ip_address'], $data['notes']);
-          $success = $installation->create();
+        // Find chdm_id from not assigned chdm list by serial_no
+        $chdm_id = null;
+        if (!empty($data['serial_no'])) {
+            if (!class_exists('Chdm')) {
+                include_once __DIR__ . '/../../classes/Chdm.php';
+            }
+            $notAssignedChdms = call_user_func(['Chdm', 'getNotAssigned']);
+            if (is_array($notAssignedChdms)) {
+                foreach ($notAssignedChdms as $chdm) {
+                    if (isset($chdm['serial_no']) && $chdm['serial_no'] == $data['serial_no']) {
+                        // Use 'id' or 'chdm_id' depending on your schema
+                        $chdm_id = isset($chdm['id']) ? $chdm['id'] : (isset($chdm['chdm_id']) ? $chdm['chdm_id'] : null);
+                        break;
+                    }
+                }
+            }
+        }
 
-          if ($success) {
+        if ($chdm_id === null) {
             return [
-                 "status" => "success",
-                "message" => "Installation created successfully"
-               
+                "message" => "No not assigned CHDM found with the given serial_no.",
+                "status" => "error"
             ];
-    }else {
+        }
+
+        $installation = new Installation(
+            null,
+            $chdm_id,
+            $data['branch_id'],
+            $technician_id,
+            $data['status'],
+            $data['date'],
+            null,
+            $data['software_version'],
+            $data['ip_address'],
+            $data['notes'],
+            $data['serial_no']
+        );
+        $success = $installation->create();
+
+        if ($success) {
+            // Assign the CHDM to the branch in chdm table
+            if (!class_exists('Chdm')) {
+                include_once __DIR__ . '/../../classes/Chdm.php';
+            }
+            $assignSuccess = false;
+            if (method_exists('Chdm', 'assignForBranch')) {
+                $assignSuccess = call_user_func(['Chdm', 'assignForBranch'], $data['serial_no'], $data['branch_id']);
+            }
+            if ($assignSuccess) {
+                return [
+                    "status" => "success",
+                    "message" => "Installation created and CHDM assigned to branch successfully"
+                ];
+            } else {
+                return [
+                    "status" => "success",
+                    "message" => "Installation created, but failed to assign CHDM to branch."
+                ];
+            }
+        } else {
             return [
                 "message" => "Failed to create installation.",
                 "status" => "error",
@@ -120,11 +171,10 @@
                 'status'=> 'error'
             ];
         }
-      
-
-        if (!empty($missing)) {
+        
+        if (!$this->checkRoles($user['role_name'], 'view_pending_installations')) {
             return [
-                'message'=> 'Missing required fields: ' . implode(', ', $missing),
+                'message'=> 'Unauthorized: Admin or Technician access required',
                 'status'=> 'error'
             ];
         }
@@ -362,9 +412,77 @@ public function view_all_installations() {
             'status' => 'error'
         ];
     }
-
-
-
 }
+ public function update_all_installations($data) {
+    $user = $this->getAuthenticatedUser();
+    if (!$user) {
+        return [
+            'message' => 'Invalid or expired token. Please log in again.',
+            'status' => 'error'
+        ];
+    }
+    if (!$this->checkRoles($user['role_name'], 'update_all_installations')) {
+        return [
+            'message' => 'Unauthorized: Admin access required',
+            'status' => 'error'
+        ];
+    }
+
+    $missing = $this->validateFields($data, ['installation_id']);
+    if (!empty($missing)) {
+        return [
+            'message' => 'Missing required fields: ' . implode(', ', $missing),
+            'status' => 'error'
+        ];
+    }
+
+    // First, get the existing installation data
+    $installation = new Installation();
+    $allInstallations = $installation->read();
+    $existingInstallation = null;
+    
+    foreach ($allInstallations as $inst) {
+        if ($inst['installation_id'] == $data['installation_id']) {
+            $existingInstallation = $inst;
+            break;
+        }
+    }
+    
+    if (!$existingInstallation) {
+        return [
+            'message' => 'Installation not found',
+            'status' => 'error'
+        ];
+    }
+    
+    // Create installation object with existing data, then override with new data
+    $installation = new Installation(
+        $data['installation_id'],
+        isset($data['chdm_id']) ? $data['chdm_id'] : $existingInstallation['chdm_id'],
+        isset($data['branch_id']) ? $data['branch_id'] : $existingInstallation['branch_id'],
+        isset($data['technician_id']) ? $data['technician_id'] : $existingInstallation['technician_id'],
+        isset($data['status']) ? $data['status'] : $existingInstallation['status'],
+        isset($data['date']) ? $data['date'] : $existingInstallation['date'],
+        isset($data['completion_date']) ? $data['completion_date'] : $existingInstallation['completion_date'],
+        isset($data['software_version']) ? $data['software_version'] : $existingInstallation['software_version'],
+        isset($data['ip_address']) ? $data['ip_address'] : $existingInstallation['ip_address'],
+        isset($data['notes']) ? $data['notes'] : $existingInstallation['notes'],
+        isset($data['serial_no']) ? $data['serial_no'] : (isset($existingInstallation['serial_no']) ? $existingInstallation['serial_no'] : null)
+    );
+    
+    $success = $installation->update_all();
+    
+    if ($success) {
+        return [
+            'status' => 'success',
+            'message' => 'Installation updated successfully'
+        ];
+    } else {
+        return [
+            'status' => 'error',
+            'message' => 'Failed to update installation'
+        ];
+    }
+ }
 }
  
