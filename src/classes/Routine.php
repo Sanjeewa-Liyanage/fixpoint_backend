@@ -589,6 +589,14 @@ private function formatClusterOutput($finalClustersWithData, $branches) {
         return $output;
     }
 
+    public function deleteRoutine() {
+        $conn = DatabaseConnection::getConnection();
+        $sql = 'DELETE FROM routines WHERE id = :id';
+        $stmt = $conn->prepare($sql);
+        $stmt->bindParam(':id', $this->routine_id);
+        return $stmt->execute();
+    }
+
     static public function getAllRoutines(){
         $conn = DatabaseConnection::getConnection();
         $sql = "SELECT * FROM routines";

@@ -12,7 +12,8 @@ class BranchApi extends ApiResourceBase{
             "update_branch_contact_person" => ["admin"],
             "update_branch_phone" => ["admin"],
             "update_branch_email" => ["admin"],
-            "readAll_branches" => ["admin","technician"]
+            "readAll_branches" => ["admin","technician"],
+            "search_branch" => ["admin", "technician"],
             
         ]);
 
@@ -136,6 +137,62 @@ class BranchApi extends ApiResourceBase{
             ];
         }
     } 
+    public function search_branch($data) {
+        $user = $this->getAuthenticatedUser();
+        if(!$user){
+            return [
+                "status" => "error",
+                "message" => "Invalid authentication token"
+            ];
+        }
+        if(!$this->checkRoles($user['role_name'], 'search_branch')) {
+            return [
+                "status" => "error",
+                "message" => "Unauthorized: Admin or technician access required"
+            ];
+        }
+        $missing = $this->validateFields($data, ['searchTerm']);
+        if (!empty($missing)) {
+            return [
+                "status" => "error",
+                "message" => "Invalid Request. Missing fields: " . implode(", ", $missing)
+            ];
+        }
+        $branch = new Branch();
+        $result = $branch->searchBranch($data['searchTerm']);
+        if (!$result) {
+            return [
+                "status" => "error",
+                "message" => "No branches found matching the search term."
+            ];
+        }
+         // Return the result in a structured format
+         $result = array_map(function($branch) {
+            return [
+                'branch_id' => $branch['branch_id'],
+                'client_id' => $branch['client_id'],
+                'name' => $branch['name'],
+                'address' => $branch['address'],
+                'latitude' => $branch['latitude'],
+                'longitude' => $branch['longitude'],
+                'location' => $branch['location'],
+                'contact_person' => $branch['contact_person'],
+                'phone' => $branch['phone'],
+                'email' => $branch['email']
+            ];
+        }, $result);
+        if ($result && count($result) > 0) {
+            return [
+                "status" => "success",
+                "data" => $result
+            ];
+        } else {
+            return [
+                "status" => "error",
+                "message" => "No branches found matching the search term."
+            ];
+        }
+    }
 
 
     public function readAll_branches() {

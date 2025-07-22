@@ -9,6 +9,7 @@ class RoutineApi extends ApiResourceBase{
             'update' => ['admin', ],
             'technicianCount' => ['admin', 'Technician'],
             'getAll' => ['admin', 'Technician'],
+            'delete' => ['admin'],
             
         ]);
     }
@@ -155,6 +156,28 @@ class RoutineApi extends ApiResourceBase{
             'status' => 'success',
             'routines' => $routines
         ];
+    }
+    public function delete($data) {
+        $user = $this->getAuthenticatedUser();
+        if (!$user || !$this->checkRoles($user['role_name'], 'delete')) {
+            return ['status' => 'error', 'message' => 'Unauthorized'];
+        }
+
+        $missing = $this->validateFields($data, ['routine_id']);
+        if (!empty($missing)) {
+            return ['status' => 'error', 'message' => 'Missing: ' . implode(', ', $missing)];
+        }
+
+        $routine = new Routine($data['routine_id']);
+        if (!$routine->read()) {
+            return ['status' => 'error', 'message' => 'Routine not found'];
+        }
+
+        if ($routine->deleteRoutine()) {
+            return ['status' => 'success', 'message' => 'Routine deleted successfully'];
+        } else {
+            return ['status' => 'error', 'message' => 'Failed to delete routine'];
+        }
     }
 
     

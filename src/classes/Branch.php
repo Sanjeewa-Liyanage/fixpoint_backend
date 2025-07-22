@@ -76,6 +76,39 @@ class Branch extends Model{
         return $result;
 
     }
+    /**
+     * Search branches by name and/or address. If both are provided, both are used in the query.
+     * @param array $criteria ['name' => ..., 'address' => ...]
+     * @return array
+     */
+    public function searchBranch($criteria) {
+        $conn = DatabaseConnection::getConnection();
+        $where = [];
+        $params = [];
+        if (isset($criteria['name']) && $criteria['name'] !== '') {
+            $where[] = 'name LIKE :name';
+            $params[':name'] = '%' . $criteria['name'] . '%';
+        }
+        if (isset($criteria['address']) && $criteria['address'] !== '') {
+            $where[] = 'address LIKE :address';
+            $params[':address'] = '%' . $criteria['address'] . '%';
+        }
+       
+        if (empty($where)) {
+            $sql = "SELECT * FROM branch";
+            $stmt = $conn->prepare($sql);
+            $stmt->execute();
+        } else {
+            $sql = "SELECT * FROM branch WHERE " . implode(' AND ', $where);
+            $stmt = $conn->prepare($sql);
+            foreach ($params as $key => $value) {
+                $stmt->bindValue($key, $value);
+            }
+            $stmt->execute();
+        }
+        $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return $result;
+    }
 
 
     
