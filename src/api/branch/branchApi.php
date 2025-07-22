@@ -32,7 +32,7 @@ class BranchApi extends ApiResourceBase{
                 "message" => "Unauthorized: Admin or technician access required"
             ];
         }
-        $missing = $this -> validateFields($data,['client_id','name','address','latitude','longitude','location','contact_person','phone','email']);
+        $missing = $this -> validateFields($data,['client_name','name','address','latitude','longitude','location','contact_person','phone','email']);
         if(!empty($missing)){
            return [
                 "status" => "error",
@@ -40,6 +40,22 @@ class BranchApi extends ApiResourceBase{
             ];
 
         }
+
+        $conn = DatabaseConnection::getConnection();
+        $sql = "SELECT client_id FROM client WHERE name = :name";
+        $stmt = $conn->prepare($sql);
+        $stmt->bindParam(":name", $data['client_name']);
+        $stmt->execute();
+        $client = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($client) {
+            $data['client_id'] = $client['client_id'];
+        } else {
+            return [
+                "status" => "error",
+                "message" => "Client not found."
+            ];
+        }
+
         $branch = new Branch(null,$data['client_id'],$data['name'],$data['address'],$data['latitude'],$data['longitude'],$data['location'],$data['contact_person'],$data['phone'],$data['email']);
         $success = $branch -> create();
 

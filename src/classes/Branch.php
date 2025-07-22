@@ -195,6 +195,26 @@ class Branch extends Model{
         return $branch;
     }
 
+    /*public static function getClientIdByName($client_name) {
+        $conn = DatabaseConnection::getConnection();
+        $sql = "SELECT client_id FROM client WHERE name = :name";
+        $stmt = $conn->prepare($sql);
+        $stmt->bindParam(":name", $client_name);
+        $stmt->execute();
+        $client = $stmt->fetch(PDO::FETCH_ASSOC);  
+        return $client ? $client['client_id'] : null;
+    }
+
+    public static function getBranchIdByName($branch_name) {
+        $conn = DatabaseConnection::getConnection();
+        $sql = "SELECT branch_id FROM branch WHERE name = :name";
+        $stmt = $conn->prepare($sql);
+        $stmt->bindParam(":name", $branch_name);
+        $stmt->execute();
+        $branch = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $branch ? $branch['branch_id'] : null;
+    }*/
+
 
 
 
