@@ -8,6 +8,7 @@ class UtilitiesApi extends ApiResourceBase {
            "read" => ['admin', 'technician', 'Quality Checker'],
               "readAll" => ['admin', 'technician', 'Quality Checker'],
            "update" => ['admin', 'technician', 'Quality Checker'],
+           "updateAll" => ['admin', 'technician', 'Quality Checker'],
               "delete" => ['admin']
         ]);
     }
@@ -121,7 +122,7 @@ class UtilitiesApi extends ApiResourceBase {
             ];
         }
 
-        $missing = $this->validateFields($data, ['utility_id', 'utility_name', 'description', 'category', 'download_link', 'created_at']);
+        $missing = $this->validateFields($data, ['utility_id', 'utility_name', 'description', 'category', 'download_link', 'created_at', 'updated_at']);
         if (!empty($missing)) {
             return [
                 'message' => 'Invalid Request. Missing fields: ' . implode(', ', $missing),
@@ -135,7 +136,8 @@ class UtilitiesApi extends ApiResourceBase {
             $data['description'],
             $data['category'],
             $data['download_link'],
-            $data['created_at']
+            $data['created_at'],
+            $data['updated_at']
         );
 
         $success = $utility->update();
@@ -226,5 +228,65 @@ class UtilitiesApi extends ApiResourceBase {
                 'count' => 0
             ];
         }
+    }
+
+    // Bulk update API method
+    public function updateAll($data) {
+        $user = $this->getAuthenticatedUser();
+        if (!$user) {
+            return [
+                'message' => 'Invalid or expired token. Please log in again.',
+                'status' => 'error',
+                'results' => []
+            ];
+        }
+        if (!$this->checkRoles($user['role_name'], 'update')) {
+            return [
+                'message' => 'Unauthorized: Access denied',
+                'status' => 'error',
+                'results' => []
+            ];
+        }
+
+        // Accept single object or array of objects
+        if (is_array($data) && isset($data['utility_id'])) {
+            $data = [$data];
+        } elseif (!is_array($data)) {
+            return [
+                'message' => 'Invalid input: data must be an array of records or a single object',
+                'status' => 'error',
+                'results' => []
+            ];
+        } elseif (array_keys($data) === range(0, count($data) - 1)) {
+            // Array of objects
+        } elseif (isset($data['utility_id'])) {
+            $data = [$data];
+        } else {
+            return [
+                'message' => 'Invalid input: data must be an array of records or a single object with utility_id',
+                'status' => 'error',
+                'results' => []
+            ];
+        }
+
+        // Only require utility_id for each record, allow partial updates
+        foreach ($data as $i => $record) {
+            if (!isset($record['utility_id'])) {
+                return [
+                    'message' => 'Invalid Request. Missing utility_id in record ' . ($i+1),
+                    'status' => 'error',
+                    'results' => []
+                ];
+            }
+        }
+
+        $results = Utilities::updateAll($data);
+        $successCount = count(array_filter($results, function($r) { return $r['status'] === 'success'; }));
+        $errorCount = count($results) - $successCount;
+        return [
+            'message' => $errorCount === 0 ? 'All Utilities updated successfully' : 'Update all operation completed with some errors.',
+            'status' => $errorCount === 0 ? 'success' : ($successCount > 0 ? 'partial' : 'error'),
+            'results' => $results
+        ];
     }
 }
