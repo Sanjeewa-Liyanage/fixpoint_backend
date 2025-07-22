@@ -126,6 +126,16 @@ class Branch extends Model{
         
     }
 
+    static public function getByName($name) {
+        $conn = DatabaseConnection::getConnection();
+        $sql = "SELECT branch_id FROM branch WHERE name = :name";
+        $stmt = $conn->prepare($sql);
+        $stmt->bindParam(":name", $name);
+        $stmt->execute();
+        $branch = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $branch;
+    }
+
 
     
     public function update(){
