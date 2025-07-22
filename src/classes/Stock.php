@@ -74,6 +74,27 @@ class Stock extends Model {
         $stmt->bindParam(":last_updated", $this->last_updated);
         return $stmt->execute();
     }
+public function updateAll($data) {
+        // Implementation for updating multiple stock records
+        $conn = DatabaseConnection::getConnection();
+        $sql = "UPDATE stock SET item_id = :item_id, quantity = :quantity, location = :location, min_threshold = :min_threshold, last_updated = :last_updated WHERE stock_id = :stock_id";
+        $stmt = $conn->prepare($sql);
+
+        foreach ($data as $record) {
+            $stmt->bindParam(":stock_id", $record['stock_id']);
+            $stmt->bindParam(":item_id", $record['item_id']);
+            $stmt->bindParam(":quantity", $record['quantity']);
+            $stmt->bindParam(":location", $record['location']);
+            $stmt->bindParam(":min_threshold", $record['min_threshold']);
+            $stmt->bindParam(":last_updated", $record['last_updated']);
+
+            if (!$stmt->execute()) {
+                return false;
+            }
+        }
+        return true;
+    }
+   
 
     public function delete() {
         // Implementation for deleting a stock record
