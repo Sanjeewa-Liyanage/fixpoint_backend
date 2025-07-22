@@ -43,9 +43,77 @@ class Branch extends Model{
 
     }
     public function read(){
-        
+
+    $conn = DatabaseConnection::getConnection();
+    $sql = "SELECT * FROM branch WHERE branch_id = :branch_id";
+    $stmt = $conn->prepare($sql);
+    $stmt->bindParam(":branch_id", $this->branch_id);
+    $stmt->execute();
+    $result = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($result) {
+        $this->client_id = $result['client_id'];
+        $this->name = $result['name'];
+        $this->address = $result['address'];
+        $this->latitude = $result['latitude'];
+        $this->longitude = $result['longitude'];
+        $this->location = $result['location'];
+        $this->contact_person = $result['contact_person'];
+        $this->phone = $result['phone'];
+        $this->email = $result['email'];
+        return true;
+    }
+    return false;  
        
     }
+
+    public static function getAllBranchDetails(){
+
+        $conn = DatabaseConnection::getConnection();
+        $sql ="SELECT b.*, c.name AS client_name FROM branch b JOIN client c ON b.client_id = c.client_id";
+        $stmt = $conn->prepare($sql);
+        $stmt->execute();
+        $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return $result;
+
+    }
+    /**
+     * Search branches by name and/or address. If both are provided, both are used in the query.
+     * @param array $criteria ['name' => ..., 'address' => ...]
+     * @return array
+     */
+    public function searchBranch($criteria) {
+        $conn = DatabaseConnection::getConnection();
+        $where = [];
+        $params = [];
+        if (isset($criteria['name']) && $criteria['name'] !== '') {
+            $where[] = 'name LIKE :name';
+            $params[':name'] = '%' . $criteria['name'] . '%';
+        }
+        if (isset($criteria['address']) && $criteria['address'] !== '') {
+            $where[] = 'address LIKE :address';
+            $params[':address'] = '%' . $criteria['address'] . '%';
+        }
+       
+        if (empty($where)) {
+            $sql = "SELECT * FROM branch";
+            $stmt = $conn->prepare($sql);
+            $stmt->execute();
+        } else {
+            $sql = "SELECT * FROM branch WHERE " . implode(' AND ', $where);
+            $stmt = $conn->prepare($sql);
+            foreach ($params as $key => $value) {
+                $stmt->bindValue($key, $value);
+            }
+            $stmt->execute();
+        }
+        $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return $result;
+    }
+
+
+    
+
+
     public function delete(){
         $conn = DatabaseConnection::getConnection();
         $sql = 'DELETE FROM branch WHERE branch_id = :branch_id';
@@ -71,17 +139,31 @@ class Branch extends Model{
 
     
     public function update(){
-        $conn =DatabaseConnection::getConnection();
-        $sql = 'UPDATE branch SET  name = :name, contact_person = :contact_person, phone = :phone, email = :email WHERE branch_id = :branch_id';
+        $conn = DatabaseConnection::getConnection();
+        $sql = 'UPDATE branch SET 
+                client_id = :client_id,
+                name = :name, 
+                address = :address,
+                latitude = :latitude,
+                longitude = :longitude,
+                location = :location,
+                contact_person = :contact_person, 
+                phone = :phone, 
+                email = :email 
+                WHERE branch_id = :branch_id';
         $stmt = $conn->prepare($sql);
         $stmt->bindParam(':branch_id', $this->branch_id);
+        $stmt->bindParam(':client_id', $this->client_id);
         $stmt->bindParam(':name', $this->name);
+        $stmt->bindParam(':address', $this->address);
+        $stmt->bindParam(':latitude', $this->latitude);
+        $stmt->bindParam(':longitude', $this->longitude);
+        $stmt->bindParam(':location', $this->location);
         $stmt->bindParam(':contact_person', $this->contact_person);
         $stmt->bindParam(':phone', $this->phone);
         $stmt->bindParam(':email', $this->email);
         $success = $stmt->execute();
-        return  $success;
-
+        return $success;
     }
     public static function getByClientId($client_id) {
         $conn = DatabaseConnection::getConnection();
@@ -92,6 +174,30 @@ class Branch extends Model{
         $branches = $stmt->fetchAll(PDO::FETCH_ASSOC);
         return $branches;
     }
+
+    public static function getById($branch_id) {
+        $conn = DatabaseConnection::getConnection();
+        $sql = "SELECT * FROM branch WHERE branch_id = :branch_id";
+        $stmt = $conn->prepare($sql);
+        $stmt->bindParam(":branch_id", $branch_id);
+        $stmt->execute();
+        $branch = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $branch;
+    }
+
+    public static function getByName($name) {
+        $conn = DatabaseConnection::getConnection();
+        $sql = "SELECT * FROM branch WHERE name = :name";
+        $stmt = $conn->prepare($sql);
+        $stmt->bindParam(":name", $name);
+        $stmt->execute();
+        $branch = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $branch;
+    }
+
+
+
+
     public function updateName($branch_id, $name) {
         $conn = DatabaseConnection::getConnection();
         $sql = 'UPDATE branch SET name = :name WHERE branch_id = :branch_id';

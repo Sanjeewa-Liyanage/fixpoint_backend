@@ -7,6 +7,9 @@ class RoutineApi extends ApiResourceBase{
             'get' => ['admin', 'Technician', ],
             'read' => ['admin', 'Technician', ],
             'update' => ['admin', ],
+            'technicianCount' => ['admin', 'Technician'],
+            'getAll' => ['admin', 'Technician'],
+            'delete' => ['admin'],
             
         ]);
     }
@@ -16,7 +19,7 @@ class RoutineApi extends ApiResourceBase{
             return ['status' => 'error', 'message' => 'Unauthorized'];
         }
 
-        $missing = $this->validateFields($data, ['branch_id','radius']);
+        $missing = $this->validateFields($data, ['branch_id','radius','quarter']);
         if (!empty($missing)) {
             return ['status' => 'error', 'message' => 'Missing: ' . implode(', ', $missing)];
         }
@@ -31,10 +34,26 @@ class RoutineApi extends ApiResourceBase{
             return ['status' => 'error', 'message' => 'Branch not found'];
         }
 
+
         $lat = $branch['latitude'];
         $lng = $branch['longitude'];
         $radius_km = isset($data['radius']) ? floatval($data['radius']) : 10;
-        $result = Routine::getNearby($lat, $lng, $radius_km);
+        $quarter = $data['quarter'];
+
+        // Get all branches that already have service done for this quarter
+        $excludeSql = "SELECT DISTINCT branch_id FROM service WHERE quarter = :quarter";
+        $excludeStmt = $conn->prepare($excludeSql);
+        $excludeStmt->bindValue(':quarter', $quarter);
+        $excludeStmt->execute();
+        $excludedBranches = $excludeStmt->fetchAll(PDO::FETCH_COLUMN, 0);
+
+        // Get nearby branches
+        $nearbyBranches = Routine::getNearby($lat, $lng, $radius_km);
+
+        // Exclude branches that already have service for this quarter
+        $result = array_values(array_filter($nearbyBranches, function($branch) use ($excludedBranches) {
+            return !in_array($branch['branch_id'], $excludedBranches);
+        }));
 
         try {
             $planned_date = isset($data['planned_date']) ? $data['planned_date'] : null;
@@ -43,13 +62,14 @@ class RoutineApi extends ApiResourceBase{
             $response_count = count($result);
             $branches = $result;
 
-            $insertSql = "INSERT INTO routines (planned_date, status, description, response_count, branches) VALUES (:planned_date, :status, :description, :response_count, :branches)";
+            $insertSql = "INSERT INTO routines (planned_date, status, description, response_count, branches, quarter) VALUES (:planned_date, :status, :description, :response_count, :branches, :quarter)";
             $insertStmt = $conn->prepare($insertSql);
             $insertStmt->bindValue(':planned_date', $planned_date);
             $insertStmt->bindValue(':status', $status);
             $insertStmt->bindValue(':description', $description);
             $insertStmt->bindValue(':response_count', $response_count);
             $insertStmt->bindValue(':branches', json_encode($branches));
+            $insertStmt->bindValue(':quarter', $quarter);
             $insertStmt->execute();
         } catch (Exception $e) {
             return ['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()];
@@ -106,7 +126,59 @@ class RoutineApi extends ApiResourceBase{
             return ['status' => 'error', 'message' => 'Failed to update routine'];
         }
     }
+    public function technicianCount($data) {
+        $user = $this->getAuthenticatedUser();
+        if (!$user || !$this->checkRoles($user['role_name'], 'technicianCount')) {
+            return ['status' => 'error', 'message' => 'Unauthorized'];
+        }
+        $missing = $this->validateFields($data, ['routine_id']);
+        if (!empty($missing)) {
+            return ['status' => 'error', 'message' => 'Missing: ' . implode(', ', $missing)];
+        }
+        $routine = new Routine($data['routine_id']);
+        if (!$routine->read()) {
+            return ['status' => 'error', 'message' => 'Routine not found'];
+        }
+        $count = $routine->decideTechnicianCount();
+        return [
+            'status' => 'success',
+            'technician_count' => $count
+        ];
+    }
+    public function getAll($data) {
+        $user = $this->getAuthenticatedUser();
+        if (!$user || !$this->checkRoles($user['role_name'], 'getAll')) {
+            return ['status' => 'error', 'message' => 'Unauthorized'];
+        }
 
+        $routines = Routine::getAllRoutines();
+        return [
+            'status' => 'success',
+            'routines' => $routines
+        ];
+    }
+    public function delete($data) {
+        $user = $this->getAuthenticatedUser();
+        if (!$user || !$this->checkRoles($user['role_name'], 'delete')) {
+            return ['status' => 'error', 'message' => 'Unauthorized'];
+        }
+
+        $missing = $this->validateFields($data, ['routine_id']);
+        if (!empty($missing)) {
+            return ['status' => 'error', 'message' => 'Missing: ' . implode(', ', $missing)];
+        }
+
+        $routine = new Routine($data['routine_id']);
+        if (!$routine->read()) {
+            return ['status' => 'error', 'message' => 'Routine not found'];
+        }
+
+        if ($routine->deleteRoutine()) {
+            return ['status' => 'success', 'message' => 'Routine deleted successfully'];
+        } else {
+            return ['status' => 'error', 'message' => 'Failed to delete routine'];
+        }
+    }
 
     
 }

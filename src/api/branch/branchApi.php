@@ -5,11 +5,16 @@ class BranchApi extends ApiResourceBase{
 
             "create_branch" => ["admin","technician"],
             "read_branch" => ["admin","technician"],
+            "read_branch_by_id" => ["admin","technician"],
             "delete_branch" => ["admin"],
+            "update_branch" => ["admin"],
             "update_branch_name" => ["admin"],
             "update_branch_contact_person" => ["admin"],
             "update_branch_phone" => ["admin"],
             "update_branch_email" => ["admin"],
+            "readAll_branches" => ["admin","technician"],
+            "search_branch" => ["admin", "technician"],
+            
         ]);
 
     }
@@ -131,6 +136,131 @@ class BranchApi extends ApiResourceBase{
             ];
         }
     }
+
+        public function read_branch_by_id($data) {
+        $user = $this->getAuthenticatedUser();
+        if(!$user){
+            return [
+                "status" => "error",
+                "message" => "Invalid authentication token"
+            ];
+        }
+        if(!$this->checkRoles($user['role_name'], 'read_branch_by_id')) {
+            return [
+                "status" => "error",
+                "message" => "Unauthorized: Admin or technician access required"
+            ];
+        }
+        $missing = $this->validateFields($data, ['branch_id']);
+        if (!empty($missing)) {
+            return [
+                "status" => "error",
+                "message" => "Invalid Request. Missing fields: " . implode(", ", $missing)
+            ];
+        }
+        $branch = new Branch($data['branch_id']);
+        $success = $branch->read();
+        if ($success) {
+            return [
+                "status" => "success",
+                "data" => $branch
+            ];
+        } else {
+            return [
+                "status" => "error",
+                "message" => "Failed to read branch."
+            ];
+        }
+    } 
+    public function search_branch($data) {
+        $user = $this->getAuthenticatedUser();
+        if(!$user){
+            return [
+                "status" => "error",
+                "message" => "Invalid authentication token"
+            ];
+        }
+        if(!$this->checkRoles($user['role_name'], 'search_branch')) {
+            return [
+                "status" => "error",
+                "message" => "Unauthorized: Admin or technician access required"
+            ];
+        }
+        $missing = $this->validateFields($data, ['searchTerm']);
+        if (!empty($missing)) {
+            return [
+                "status" => "error",
+                "message" => "Invalid Request. Missing fields: " . implode(", ", $missing)
+            ];
+        }
+        $branch = new Branch();
+        $result = $branch->searchBranch($data['searchTerm']);
+        if (!$result) {
+            return [
+                "status" => "error",
+                "message" => "No branches found matching the search term."
+            ];
+        }
+         // Return the result in a structured format
+         $result = array_map(function($branch) {
+            return [
+                'branch_id' => $branch['branch_id'],
+                'client_id' => $branch['client_id'],
+                'name' => $branch['name'],
+                'address' => $branch['address'],
+                'latitude' => $branch['latitude'],
+                'longitude' => $branch['longitude'],
+                'location' => $branch['location'],
+                'contact_person' => $branch['contact_person'],
+                'phone' => $branch['phone'],
+                'email' => $branch['email']
+            ];
+        }, $result);
+        if ($result && count($result) > 0) {
+            return [
+                "status" => "success",
+                "data" => $result
+            ];
+        } else {
+            return [
+                "status" => "error",
+                "message" => "No branches found matching the search term."
+            ];
+        }
+    }
+
+
+    public function readAll_branches() {
+        $user = $this->getAuthenticatedUser();
+        if(!$user){
+            return [
+                "status" => "error",
+                "message" => "Invalid authentication token"
+            ];
+        }
+        if(!$this->checkRoles($user['role_name'], 'readAll_branches')) {
+            return [
+                "status" => "error",
+                "message" => "Unauthorized: Admin or technician access required"
+            ];
+        }
+        $branches = Branch::getAllBranchDetails();
+        if ($branches && count($branches) > 0) {
+            return [
+                "status" => "success",
+                "data" => $branches
+            ];
+        } else {
+            return [
+                "status" => "error",
+                "message" => "No branches found."
+            ];
+        }
+    }
+
+
+
+
     public function delete_branch($data){
 
         $user = $this->getAuthenticatedUser();
@@ -168,6 +298,77 @@ class BranchApi extends ApiResourceBase{
         }
 
     }
+
+    public function update_branch($data) {
+        $user = $this->getAuthenticatedUser();
+        if(!$user){
+            return [
+                "status" => "error",
+                "message" => "Invalid authentication token"
+            ];
+        }
+        if(!$this->checkRoles($user['role_name'], 'update_branch')){
+            return [
+                "status" => "error",
+                "message" => "Unauthorized: Admin access required"
+            ];
+        }
+
+        // First, get the existing branch data
+        $branch = new Branch($data['branch_id']);
+        $success = $branch->read();
+        
+        if (!$success) {
+            return [
+                "status" => "error",
+                "message" => "Branch not found."
+            ];
+        }
+
+        // Update only the fields that are provided in the request
+        if (isset($data['client_id'])) {
+            $branch->client_id = $data['client_id'];
+        }
+        if (isset($data['name'])) {
+            $branch->name = $data['name'];
+        }
+        if (isset($data['address'])) {
+            $branch->address = $data['address'];
+        }
+        if (isset($data['latitude'])) {
+            $branch->latitude = $data['latitude'];
+        }
+        if (isset($data['longitude'])) {
+            $branch->longitude = $data['longitude'];
+        }
+        if (isset($data['location'])) {
+            $branch->location = $data['location'];
+        }
+        if (isset($data['contact_person'])) {
+            $branch->contact_person = $data['contact_person'];
+        }
+        if (isset($data['phone'])) {
+            $branch->phone = $data['phone'];
+        }
+        if (isset($data['email'])) {
+            $branch->email = $data['email'];
+        }
+
+        $updateSuccess = $branch->update();
+        
+        if ($updateSuccess) {
+            return [
+                "status" => "success",
+                "message" => "Branch updated successfully."
+            ];
+        } else {
+            return [
+                "status" => "error",
+                "message" => "Failed to update branch."
+            ];
+        }
+    }
+
     public function update_branch_name($data) {
         $user = $this->getAuthenticatedUser();
         if(!$user){

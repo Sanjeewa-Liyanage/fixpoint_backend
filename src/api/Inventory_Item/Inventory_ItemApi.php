@@ -6,6 +6,7 @@ class Inventory_ItemApi extends ApiResourceBase  {
         $this->setRoles([
             "create" => ['admin','technician','Quality Checker'],
             "read" => ['admin', 'technician', 'Quality Checker'],
+            "readAll" => ['admin', 'technician', 'Quality Checker'],
             "update" => ['admin', 'technician', 'Quality Checker'],
             "delete" => ['admin']
         ]);
@@ -60,6 +61,14 @@ class Inventory_ItemApi extends ApiResourceBase  {
 }
 
 public function read($data) {
+    // Debug: Check what data is received
+    if ($data === null || !is_array($data)) {
+        return [
+            'message' => 'Invalid or missing JSON body. Please provide item_id.',
+            'status' => 'error'
+        ];
+    }
+    
     $user = $this->getAuthenticatedUser();
     if (!$user) {
         return [
@@ -83,8 +92,7 @@ public function read($data) {
         ];
     }
 
-    $inventory_Item = new Inventory_Item(
-        $data['item_id']);
+    $inventory_Item = new Inventory_Item($data['item_id']);
     $result = $inventory_Item->read();
 
     if ($result) {
@@ -95,13 +103,13 @@ public function read($data) {
         ];
     } else {
         return [
-            'message' => 'Failed to retrieve Inventory Item',
+            'message' => 'Inventory Item not found with ID: ' . $data['item_id'],
             'status' => 'error'
         ];
     }
 }
 
-    public function update($data){
+public function update($data){
         $user = $this->getAuthenticatedUser();
         if (!$user) {
             return [
@@ -146,6 +154,7 @@ public function read($data) {
         }
     }
 
+
     public function delete($data) {
         $user = $this->getAuthenticatedUser();
         if (!$user) {
@@ -180,6 +189,46 @@ public function read($data) {
             return [
                 'message' => 'Failed to delete Inventory Item',
                 'status' => 'error'
+            ];
+        }
+    }
+
+    public function readAll($data = null) {
+        $user = $this->getAuthenticatedUser();
+        if (!$user) {
+            return [
+                'message' => 'Invalid or expired token. Please log in again.',
+                'status' => 'error'
+            ];
+        }
+
+        if (!$this->checkRoles($user['role_name'], 'readAll')) {
+            return [
+                'message' => 'Unauthorized: Access denied',
+                'status' => 'error'
+            ];
+        }
+
+        // Get all inventory items
+        $conn = DatabaseConnection::getConnection();
+        $sql = "SELECT * FROM inventory_item ORDER BY item_id";
+        $stmt = $conn->prepare($sql);
+        $stmt->execute();
+        $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        if ($results) {
+            return [
+                'message' => 'All inventory items retrieved successfully',
+                'status' => 'success',
+                'data' => $results,
+                'count' => count($results)
+            ];
+        } else {
+            return [
+                'message' => 'No inventory items found',
+                'status' => 'success',
+                'data' => [],
+                'count' => 0
             ];
         }
     }
