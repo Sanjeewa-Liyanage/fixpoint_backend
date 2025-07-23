@@ -185,15 +185,7 @@ class Branch extends Model{
         return $branch;
     }
 
-    public static function getByName($name) {
-        $conn = DatabaseConnection::getConnection();
-        $sql = "SELECT * FROM branch WHERE name = :name";
-        $stmt = $conn->prepare($sql);
-        $stmt->bindParam(":name", $name);
-        $stmt->execute();
-        $branch = $stmt->fetch(PDO::FETCH_ASSOC);
-        return $branch;
-    }
+    
 
     /*public static function getClientIdByName($client_name) {
         $conn = DatabaseConnection::getConnection();

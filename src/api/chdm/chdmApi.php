@@ -10,7 +10,7 @@ class ChdmApi extends ApiResourceBase{
         "update_location" => ["admin", "quality_checker"],
         "update_branch_id" => ["admin", "quality_checker"],
         "delete" => ["admin"],
-        "view_all_chdm" => ["admin"],
+        "view_all_chdm" => ["admin","technician"],
         "update_all_chdm" => ["admin"],
         "get_not_assigned" => ["admin", "quality_checker","technician"]
        ]); 

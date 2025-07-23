@@ -2,11 +2,11 @@
 class Service_ReportingApi extends ApiResourceBase {
 public function __construct() {
     $this->setRoles([
-        "create_service_report" => ["Technician", "admin"],
-        "view_service_reports" => ["Technician", "admin"],
-        "update_service_reports" => ["Technician", "admin"],
-        "delete_service_report" => ["Technician", "admin"],
-        "view_all_service_reports" => ["Technician", "admin"]
+        "create_service_report" => ["technician", "admin"],
+        "view_service_reports" => ["technician", "admin"],
+        "update_service_reports" => ["technician", "admin"],
+        "delete_service_report" => ["technician", "admin"],
+        "view_all_service_reports" => ["technician", "admin"]
     ]);
 }
 

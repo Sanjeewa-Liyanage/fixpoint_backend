@@ -4,11 +4,11 @@ class RoutineApi extends ApiResourceBase{
    public function __construct() {
         $this->setRoles([
             
-            'get' => ['admin', 'Technician', ],
-            'read' => ['admin', 'Technician', ],
+            'get' => ['admin', 'technician', ],
+            'read' => ['admin', 'technician', ],
             'update' => ['admin', ],
-            'technicianCount' => ['admin', 'Technician'],
-            'getAll' => ['admin', 'Technician'],
+            'technicianCount' => ['admin', 'technician'],
+            'getAll' => ['admin', 'technician'],
             'delete' => ['admin'],
             
         ]);
