@@ -65,7 +65,7 @@ class Router
 
     private function runExistingScript($path)
     {
-//        require_once($path);
+        require_once($path);
         $className = ucfirst($this->resource).'Api';
         $class = new $className();
         if (method_exists($class, 'checkRoles')) {
