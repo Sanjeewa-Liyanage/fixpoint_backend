@@ -22,6 +22,7 @@ require_once 'src/classes/Routine.php';
 require_once 'src/classes/Repair.php';
 require_once 'src/classes/Branch.php';
 require_once 'src/classes/client.php';
+require_once 'src/classes/ClusterTechnician.php';
 
 // Common APIs
 require_once 'src/api/auth/roleApi.php';

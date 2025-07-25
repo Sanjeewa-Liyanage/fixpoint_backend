@@ -147,5 +147,34 @@
         return $result;
         
     }
+    public static function readAllWithDetails() {
+        try {
+            $conn = DatabaseConnection::getConnection();
+            $sql = "
+                SELECT 
+                    sr.*, 
+                    c.name AS client_name,
+                    b.name AS branch_name,
+                    b.address AS branch_address,
+                    u.username AS username
+                FROM 
+                    service sr
+                LEFT JOIN 
+                    client c ON sr.client_id = c.client_id
+                LEFT JOIN 
+                    branch b ON sr.branch_id = b.branch_id
+                LEFT JOIN 
+                    users u ON sr.user_id = u.user_id
+                ORDER BY 
+                    sr.service_id DESC
+            ";
+            $stmt = $conn->prepare($sql);
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("Database error in Service_Reporting::readAllWithDetails: " . $e->getMessage());
+            return false;
+        }
+    }
 
 }
