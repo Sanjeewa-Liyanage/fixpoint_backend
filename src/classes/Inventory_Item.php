@@ -1,4 +1,3 @@
-
 <?php
 class Inventory_Item extends Model{
     public $item_id;
