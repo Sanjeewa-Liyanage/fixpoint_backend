@@ -1,0 +1,110 @@
+{
+  "endpoint": "POST /api/repair/create_repair",
+  "description": "Test JSON for creating a new repair record",
+  "headers": {
+    "Content-Type": "application/json",
+    "Authorization": "Bearer YOUR_JWT_TOKEN_HERE"
+  },
+  "test_cases": [
+    {
+      "name": "Valid repair creation - ATM",
+      "payload": {
+        "device_type": "ATM",
+        "device_id": "ATM001",
+        "branch_id": 1,
+        "technician_id": 5,
+        "start_time": "2025-07-15 09:00:00",
+        "virtual_support_link": "https://teams.microsoft.com/l/meetup-join/12345"
+      },
+      "expected_response": {
+        "status": "success",
+        "message": "Repair created successfully."
+      }
+    },
+    {
+      "name": "Valid repair creation - POS Terminal",
+      "payload": {
+        "device_type": "POS Terminal",
+        "device_id": "POS002",
+        "branch_id": 2,
+        "technician_id": 3,
+        "start_time": "2025-07-15 14:30:00",
+        "virtual_support_link": "https://zoom.us/j/1234567890"
+      },
+      "expected_response": {
+        "status": "success",
+        "message": "Repair created successfully."
+      }
+    },
+    {
+      "name": "Valid repair creation - Cash Counting Machine",
+      "payload": {
+        "device_type": "Cash Counting Machine",
+        "device_id": "CCM003",
+        "branch_id": 3,
+        "technician_id": 7,
+        "start_time": "2025-07-16 10:15:00",
+        "virtual_support_link": "https://meet.google.com/abc-defg-hij"
+      },
+      "expected_response": {
+        "status": "success",
+        "message": "Repair created successfully."
+      }
+    },
+    {
+      "name": "Missing required field - device_type",
+      "payload": {
+        "device_id": "ATM001",
+        "branch_id": 1,
+        "technician_id": 5,
+        "start_time": "2025-07-15 09:00:00",
+        "virtual_support_link": "https://teams.microsoft.com/l/meetup-join/12345"
+      },
+      "expected_response": {
+        "status": "error",
+        "message": "Invalid Request. Missing fields: device_type"
+      }
+    },
+    {
+      "name": "Missing required field - device_id",
+      "payload": {
+        "device_type": "ATM",
+        "branch_id": 1,
+        "technician_id": 5,
+        "start_time": "2025-07-15 09:00:00",
+        "virtual_support_link": "https://teams.microsoft.com/l/meetup-join/12345"
+      },
+      "expected_response": {
+        "status": "error",
+        "message": "Invalid Request. Missing fields: device_id"
+      }
+    },
+    {
+      "name": "Missing multiple required fields",
+      "payload": {
+        "device_type": "ATM",
+        "device_id": "ATM001"
+      },
+      "expected_response": {
+        "status": "error",
+        "message": "Invalid Request. Missing fields: branch_id, technician_id, start_time, virtual_support_link"
+      }
+    },
+    {
+      "name": "Empty payload",
+      "payload": {},
+      "expected_response": {
+        "status": "error",
+        "message": "Invalid Request. Missing fields: device_type, device_id, branch_id, technician_id, start_time, virtual_support_link"
+      }
+    }
+  ],
+  "notes": [
+    "Replace YOUR_JWT_TOKEN_HERE with a valid JWT token from login",
+    "Ensure the technician_id exists in the users table with 'technician' role",
+    "Ensure the branch_id exists in the branches table",
+    "start_time should be in 'YYYY-MM-DD HH:MM:SS' format",
+    "virtual_support_link should be a valid URL",
+    "Only users with 'admin' or 'technician' roles can create repairs"
+  ]
+}

@@ -8,6 +8,8 @@ class StockApi extends ApiResourceBase {
             "read" => ['admin', 'technician', 'Quality Checker'],
             "readAll" => ['admin', 'technician', 'Quality Checker'],
             "update" => ['admin', 'technician', 'Quality Checker'],
+            "updateAll" => ['admin', 'technician', 'Quality Checker'],
+
             "delete" => ['admin']
         ]);
     }
@@ -142,6 +144,61 @@ class StockApi extends ApiResourceBase {
 
         $stock = new Stock(
             null, // stock_id will be set in the constructor
+            $data['item_id'],
+            $data['quantity'],
+            $data['location'],
+            $data['min_threshold'],
+            $data['last_updated']
+        );
+
+        $success = $stock->update();
+        if ($success) {
+            return [
+                'message' => 'Stock updated successfully',
+                'status' => 'success'
+            ];
+        } else {
+            return [
+                'message' => 'Failed to update Stock',
+                'status' => 'error'
+            ];
+        }
+    }
+
+    public function updateAll($data) {
+        $user = $this->getAuthenticatedUser();
+        if (!$user) {
+            return [
+                'message' => 'Invalid or expired token. Please log in again.',
+                'status' => 'error'
+            ];
+        }
+        if (!$this->checkRoles($user['role_name'], 'updateAll')) {
+            return [
+                'message' => 'Unauthorized: Access denied',
+                'status' => 'error'
+            ];
+        }
+
+        // Validate that data is an array and contains stock_id
+        if (!is_array($data) || !isset($data['stock_id'])) {
+            return [
+                'message' => 'Invalid Request. Missing stock_id field.',
+                'status' => 'error'
+            ];
+        }
+
+        $missing = $this->validateFields($data, ['item_id', 'quantity', 'location', 'min_threshold', 'last_updated']);
+        if (!empty($missing)) {
+            return [
+                'message' => 'Invalid Request. Missing fields: ' . implode(', ', $missing),
+                'status' => 'error'
+            ];
+        }
+
+        // Use stock_id from data
+        $stock = new Stock(
+            $data['stock_id'], // stock_id
             $data['item_id'],
             $data['quantity'],
             $data['location'],
