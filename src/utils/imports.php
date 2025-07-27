@@ -42,7 +42,7 @@ require_once 'src/api/Inventory_Item/Inventory_ItemApi.php';
 require_once 'src/api/Utilities/UtilitiesApi.php';
 require_once 'src/api/Stock/StockApi.php';
 require_once 'src/api/Teller_Scanner/Teller_ScannerApi.php';
-require_once 'src/api/client/clientApi.php';
+require_once 'src/api/client/ClientApi.php';
 
 require_once 'src/api/chdm/chdmApi.php';
 require_once 'src/utils/router.php';
