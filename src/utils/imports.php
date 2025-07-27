@@ -21,7 +21,7 @@ require_once 'src/classes/Teller_Scanner.php';
 require_once 'src/classes/Routine.php';
 require_once 'src/classes/Repair.php';
 require_once 'src/classes/Branch.php';
-require_once 'src/classes/client.php';
+require_once 'src/classes/Client.php';
 require_once 'src/classes/ClusterTechnician.php';
 
 // Common APIs
