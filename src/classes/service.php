@@ -11,8 +11,9 @@
     public $created_at;
     public $teller_scanner_serial;
     public $chdm_serial;
+    public $quarter;
 
-    public function __construct($service_id = null, $branch_id = null, $client_id = null, $user_id = null, $device_type = null, $service_date = null, $service_type = null, $service_notes = null, $created_at = null, $teller_scanner_serial = null, $chdm_serial = null) {
+    public function __construct($service_id = null, $branch_id = null, $client_id = null, $user_id = null, $device_type = null, $service_date = null, $service_type = null, $service_notes = null, $created_at = null, $teller_scanner_serial = null, $chdm_serial = null, $quarter = null) {
         $this->service_id = $service_id;
         $this->branch_id = $branch_id;
         $this->client_id = $client_id;
@@ -24,12 +25,13 @@
         $this->created_at = $created_at;
         $this->teller_scanner_serial = $teller_scanner_serial;
         $this->chdm_serial = $chdm_serial;
+        $this->quarter = $quarter;
     }
 
     public function create() {
         $conn = DatabaseConnection::getConnection();
-        $sql = "INSERT INTO service (branch_id, client_id, user_id, device_type, service_date, service_type, service_notes, created_at, teller_scanner_serial, chdm_serial)
-                VALUES (:branch_id, :client_id, :user_id, :device_type, :service_date, :service_type, :service_notes, :created_at, :teller_scanner_serial, :chdm_serial)";
+        $sql = "INSERT INTO service (branch_id, client_id, user_id, device_type, service_date, service_type, service_notes, created_at, teller_scanner_serial, chdm_serial, quarter)
+                VALUES (:branch_id, :client_id, :user_id, :device_type, :service_date, :service_type, :service_notes, :created_at, :teller_scanner_serial, :chdm_serial, :quarter)";
         $stmt = $conn->prepare($sql);
 
         $stmt->bindParam(":branch_id", $this->branch_id);
@@ -42,6 +44,7 @@
         $stmt->bindParam(":created_at", $this->created_at);
         $stmt->bindParam(":teller_scanner_serial", $this->teller_scanner_serial);
         $stmt->bindParam(":chdm_serial", $this->chdm_serial);
+        $stmt->bindParam(":quarter", $this->quarter);
 
         $success = $stmt->execute();
         return $success;
@@ -58,7 +61,8 @@
     service_notes LIKE :keyword OR
     CAST(created_at AS TEXT) LIKE :keyword OR
     teller_scanner_serial LIKE :keyword OR
-    chdm_serial LIKE :keyword";
+    chdm_serial LIKE :keyword OR
+    CAST(quarter AS TEXT) LIKE :keyword";
 
         $stmt = $conn->prepare($sql);
         $likeKeyword = '%' . $keyword . '%';
@@ -69,6 +73,7 @@
     }
 
     public function read(){}
+
    
     public function update_service_fields( $data) {
         if (!isset($this->service_id)) {
@@ -102,6 +107,10 @@
             $fields[] = 'chdm_serial = :chdm_serial';
             $params[':chdm_serial'] = $data['chdm_serial'];
         }
+        if(isset($data['quarter'])) {
+            $fields[] = 'quarter = :quarter';
+            $params[':quarter'] = $data['quarter'];
+        }
 
         if(empty($fields)) {
             return false; // No fields to update
@@ -129,5 +138,43 @@
     }
     public function update(){}
     
+    public function readAll() {
+        $conn = DatabaseConnection::getConnection();
+        $sql = "SELECT * FROM service ORDER BY created_at DESC";
+        $stmt = $conn->prepare($sql);
+        $stmt->execute();
+        $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return $result;
+        
+    }
+    public static function readAllWithDetails() {
+        try {
+            $conn = DatabaseConnection::getConnection();
+            $sql = "
+                SELECT 
+                    sr.*, 
+                    c.name AS client_name,
+                    b.name AS branch_name,
+                    b.address AS branch_address,
+                    u.username AS username
+                FROM 
+                    service sr
+                LEFT JOIN 
+                    client c ON sr.client_id = c.client_id
+                LEFT JOIN 
+                    branch b ON sr.branch_id = b.branch_id
+                LEFT JOIN 
+                    users u ON sr.user_id = u.user_id
+                ORDER BY 
+                    sr.service_id DESC
+            ";
+            $stmt = $conn->prepare($sql);
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("Database error in Service_Reporting::readAllWithDetails: " . $e->getMessage());
+            return false;
+        }
+    }
 
 }

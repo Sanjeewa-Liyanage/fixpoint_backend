@@ -81,5 +81,39 @@ class Utilities extends Model{
         return $stmt->execute();
     }
 
-    
+  
+public static function updateAll($data) {
+    $conn = DatabaseConnection::getConnection();
+    $results = [];
+
+    foreach ($data as $record) {
+        $sql = "UPDATE utilities SET 
+                    utility_name = :utility_name,
+                    category = :category,
+                    description = :description,
+                    download_link = :download_link,
+                    created_at = :created_at,
+                    updated_at = :updated_at
+                WHERE utility_id = :utility_id";
+        $stmt = $conn->prepare($sql);
+
+        $stmt->bindParam(':utility_id', $record['utility_id']);
+        $stmt->bindParam(':utility_name', $record['utility_name']);
+        $stmt->bindParam(':category', $record['category']);
+        $stmt->bindParam(':description', $record['description']);
+        $stmt->bindParam(':download_link', $record['download_link']);
+        $stmt->bindParam(':created_at', $record['created_at']);
+        $stmt->bindParam(':updated_at', $record['updated_at']);
+
+        $success = $stmt->execute();
+        $results[] = [
+            'utility_id' => $record['utility_id'],
+            'status' => $success ? 'success' : 'error'
+        ];
+    }
+
+    return $results;
 }
+        
+}
+        

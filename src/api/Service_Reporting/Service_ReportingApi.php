@@ -1,19 +1,39 @@
 <?php
 class Service_ReportingApi extends ApiResourceBase {
-    public function __construct() {
-        $this->setRoles([
-            "create_service_report" => ["Technician", "admin"],
-            "view_service_reports" => ["Technician", "admin"],
-            "update_service_reports" => ["Technician", "admin"],
-            "delete_service_report" => ["Technician", "admin"]
-        ]);
-    }
+public function __construct() {
+    $this->setRoles([
+        "create_service_report" => ["technician", "admin"],
+        "view_service_reports" => ["technician", "admin"],
+        "update_service_reports" => ["technician", "admin"],
+        "delete_service_report" => ["technician", "admin"],
+        "view_all_service_reports" => ["technician", "admin"]
+    ]);
+}
+
 public function create_service_report($data) {
     $user = $this->getAuthenticatedUser();
     if(!$user) {
         return [
             "status" => "error",
             "message" => "Invalid Authentication Token"
+        ];
+    }
+    
+    // Try different possible key names for user ID
+    $user_id = null;
+    if (isset($user['user_id'])) {
+        $user_id = $user['user_id'];
+    } elseif (isset($user['id'])) {
+        $user_id = $user['id'];
+    } elseif (isset($user['uid'])) {
+        $user_id = $user['uid'];
+    }
+    
+    if (!$user_id) {
+        return [
+            "status" => "Unauthorized",
+            "message" => "User ID not found in authentication token",
+            "status_code"=> 403
         ];
     }
     $roleName = isset($user['role_name'])? $user['role_name'] : (isset($user['role']['role_name']) ? $user['role']['role_name'] : null);
@@ -26,12 +46,12 @@ public function create_service_report($data) {
     $missing = $this->validateFields($data, [
         'branch_id',
         'client_id',
-        'user_id',
+        
         'device_type',
         'service_date',
         'service_type',
         'service_notes',
-        'created_at'
+        'quarter'
         
     ]);
     if(!empty($missing)) {
@@ -40,24 +60,46 @@ public function create_service_report($data) {
             'message' => 'Missing fields: ' . implode(', ', $missing)
         ];
     }
+    
+    // Validate device_type
+    $validDeviceTypes = ['teller_scanner', 'chdm'];
+    if (!in_array(strtolower($data['device_type']), $validDeviceTypes)) {
+        return [
+            'status' => 'error',
+            'message' => 'Invalid device_type. Allowed values: ' . implode(', ', $validDeviceTypes)
+        ];
+    }
+    
+    // Convert quarter string to integer (Q1->1, Q2->2, Q3->3, Q4->4)
+    $quarter = $data['quarter'];
+    if (is_string($quarter) && preg_match('/^Q([1-4])$/i', $quarter, $matches)) {
+        $quarter = (int)$matches[1];
+    } elseif (!is_numeric($quarter) || $quarter < 1 || $quarter > 4) {
+        return [
+            'status' => 'error',
+            'message' => 'Invalid quarter value. Use Q1, Q2, Q3, Q4 or 1, 2, 3, 4'
+        ];
+    }
+    
     $serviceReport = new Service_Reporting(
         null,
         $data['branch_id'],
         $data['client_id'],
-        $data['user_id'],
+        $user_id,
         $data['device_type'],
         $data['service_date'],
         $data['service_type'],
         $data['service_notes'],
         $data['created_at'],
         $data['teller_scanner_serial']?? null,
-        $data['chdm_serial']?? null
+        $data['chdm_serial']?? null,
+        $quarter
         );
     $success = $serviceReport->create();
     if($success) {
         return [
             'status' => 'success',
-            'message' => 'Service report created successfully'
+            'message' => 'Service report created successfully  with Data: ' . json_encode($data)
         ];
     } else {
         return [
@@ -175,4 +217,41 @@ public function update_service_reports($data) {
         ];
  }
 }
+  public function view_all_service_reports($data) {
+        $user = $this->getAuthenticatedUser();
+        if(!$user) {
+            return [
+                "message"=> "Invalid or expired authentication token. Please log in again.",
+                "status"=> "error",
+            ];
+        }
+        if(!$this->checkRoles($user['role_name'], 'view_all_service_reports')) {
+            return [
+                "message" => "Unauthorized access. Admin or Technician access required",
+                "status"=> "error",
+            ];
+        }
+
+        $results = Service_Reporting::readAllWithDetails();
+
+        if ($results !== false) {
+            if (empty($results)) {
+                return [
+                    "message" => "No service reports found",
+                    "status" => "success",
+                    "data" => []
+                ];
+            }
+            return [
+                "status" => "success",
+                "message" => "Service reports retrieved successfully",
+                "data" => $results
+            ];
+        } else {
+            return [
+                "status" => "error",
+                "message" => "A database error occurred."
+            ];
+        }
+    }
 }
