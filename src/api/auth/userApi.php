@@ -160,7 +160,6 @@ class UserApi extends ApiResourceBase{
     }
 
     public function search_users($data) {
-        // Validate the search keyword is provided
         $missing = $this->validateFields($data, ['keyword']);
         if (!empty($missing)) {
             return [
@@ -169,7 +168,6 @@ class UserApi extends ApiResourceBase{
             ];
         }
 
-        // Call the searchUser method from User class
         $searchResults = User::searchUser($data['keyword']);
         
         if (!empty($searchResults)) {
