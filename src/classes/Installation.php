@@ -47,28 +47,30 @@
             return $success;
         }
         public function read() {
-            $conn = DatabaseConnection::getConnection();
-            $sql = "SELECT 
-                        i.installation_id,
-                        i.chdm_id,
-                        i.branch_id,
-                        i.technician_id,
-                        i.status,
-                        i.date,
-                        i.completion_date,
-                        i.software_version,
-                        i.ip_address,
-                        i.notes,
-                        i.serial_no,
-                        u.username as technician_name,
-                        u.email as technician_email,
-                        u.phone as technician_phone
-                    FROM installation i
-                    LEFT JOIN users u ON i.technician_id = u.user_id";
-            $stmt = $conn->prepare($sql);
-            $stmt->execute();
-            $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            return $result;
+        $conn = DatabaseConnection::getConnection();
+        $sql = "SELECT 
+                    i.installation_id,
+                    i.chdm_id,
+                    i.branch_id,
+                    b.name as branch_name,
+                    i.technician_id,
+                    i.status,
+                    i.date,
+                    i.completion_date,
+                    i.software_version,
+                    i.ip_address,
+                    i.notes,
+                    i.serial_no,
+                    u.username as technician_name,
+                    u.email as technician_email,
+                    u.phone as technician_phone
+                FROM installation i
+                LEFT JOIN users u ON i.technician_id = u.user_id
+                LEFT JOIN branch b ON i.branch_id = b.branch_id";
+        $stmt = $conn->prepare($sql);
+        $stmt->execute();
+        $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return $result;
         }
 
         
