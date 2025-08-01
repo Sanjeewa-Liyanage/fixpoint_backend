@@ -10,8 +10,8 @@ class ChdmApi extends ApiResourceBase{
         "update_location" => ["admin", "quality_checker"],
         "update_branch_id" => ["admin", "quality_checker"],
         "delete" => ["admin"],
-        "view_all_chdm" => ["admin"],
-        "update_all_chdm" => ["admin"],
+        "view_all_chdm" => ["admin", "quality_checker"],
+        "update_all_chdm" => ["admin", "quality_checker"],
         "get_not_assigned" => ["admin", "quality_checker","technician"]
        ]); 
     }
@@ -271,6 +271,21 @@ public function update_branch_id($data) {
                 "status"=> "error"
             ];
         }
+    
+          // Check if CHDM is assigned in installation table
+         $conn = DatabaseConnection::getConnection();
+         $checkSql = "SELECT * FROM installation WHERE chdm_id = (SELECT id FROM chdm WHERE serial_no = :serial_no)";
+         $stmt = $conn->prepare($checkSql);
+         $stmt->bindParam(':serial_no', $data['serial_no']);
+         $stmt->execute();
+
+       if ($stmt->rowCount() > 0) {
+          return [
+            "message"=> "Cannot delete CHDM. It is already assigned to an installation.",
+            "status"=> "error"
+        ];
+    }
+
         $chdm = new Chdm(null, $data['serial_no']);
         $success = $chdm->delete();
         if ($success) {
@@ -339,7 +354,7 @@ public function assignForBranch($data) {
 
         if (!$this->checkRoles($user["role_name"], "view_all_chdm")){
             return [
-                "message"=> "Unauthorized: Admin access required",
+                "message"=> "Unauthorized: Admin & Quality Checker access required",
                 "status"=> "error"
             ];
         }
@@ -395,7 +410,7 @@ public function assignForBranch($data) {
 
         if (!$this->checkRoles($user["role_name"], "update_all_chdm")){
             return [
-                "message"=> "Unauthorized: Admin access required",
+                "message"=> "Unauthorized: Admin & Quality Checker access required",
                 "status"=> "error"
             ];
         }
@@ -407,6 +422,20 @@ public function assignForBranch($data) {
                 "status"=> "error"
             ];
         }
+
+         // Check if this CHDM is already assigned
+    $conn = DatabaseConnection::getConnection();
+    $checkSql = "SELECT * FROM installation WHERE chdm_id = :chdm_id";
+    $stmt = $conn->prepare($checkSql);
+    $stmt->bindParam(":chdm_id", $data['id']);
+    $stmt->execute();
+
+    if ($stmt->rowCount() > 0) {
+        return [
+            "message" => "Cannot update CHDM. It is already assigned to an installation.",
+            "status" => "error"
+        ];
+    }
 
         $chdm = new Chdm();
         $allChdm = $chdm->readAll();
