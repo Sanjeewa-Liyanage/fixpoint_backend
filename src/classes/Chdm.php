@@ -111,7 +111,7 @@ class Chdm extends Model{
     }
     static public function getNotAssigned() {
         $conn = DatabaseConnection::getConnection();
-        $sql = "SELECT * FROM chdm WHERE branch_id IS NULL";
+        $sql = "SELECT * FROM chdm WHERE branch_id IS NULL AND state = 'passed'";
         $stmt = $conn->prepare($sql);
         $stmt->execute();
         $result = $stmt->fetchAll(PDO::FETCH_ASSOC);

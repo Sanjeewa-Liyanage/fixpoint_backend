@@ -185,6 +185,7 @@ class Branch extends Model{
         return $branch;
     }
 
+
     
 
     /*public static function getClientIdByName($client_name) {
@@ -196,6 +197,7 @@ class Branch extends Model{
         $client = $stmt->fetch(PDO::FETCH_ASSOC);  
         return $client ? $client['client_id'] : null;
     }
+
 
     public static function getBranchIdByName($branch_name) {
         $conn = DatabaseConnection::getConnection();
