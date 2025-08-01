@@ -11,7 +11,7 @@
             "update_completion_date" => ["admin", "technician"],
             "update_notes" => ["admin", "technician"],
             "delete_installation" => ["admin"],
-            "view_all_installations" => ["admin"],
+            "view_all_installations" => ["admin","technician"],
             "update_all_installations" => ["admin"],
         ]);
     }

@@ -2,11 +2,11 @@
 class Service_ReportingApi extends ApiResourceBase {
 public function __construct() {
     $this->setRoles([
-        "create_service_report" => ["Technician", "admin"],
-        "view_service_reports" => ["Technician", "admin"],
-        "update_service_reports" => ["Technician", "admin"],
-        "delete_service_report" => ["Technician", "admin"],
-        "view_all_service_reports" => ["Technician", "admin"]
+        "create_service_report" => ["technician", "admin"],
+        "view_service_reports" => ["technician", "admin"],
+        "update_service_reports" => ["technician", "admin"],
+        "delete_service_report" => ["technician", "admin"],
+        "view_all_service_reports" => ["technician", "admin"]
     ]);
 }
 
@@ -16,6 +16,24 @@ public function create_service_report($data) {
         return [
             "status" => "error",
             "message" => "Invalid Authentication Token"
+        ];
+    }
+    
+    // Try different possible key names for user ID
+    $user_id = null;
+    if (isset($user['user_id'])) {
+        $user_id = $user['user_id'];
+    } elseif (isset($user['id'])) {
+        $user_id = $user['id'];
+    } elseif (isset($user['uid'])) {
+        $user_id = $user['uid'];
+    }
+    
+    if (!$user_id) {
+        return [
+            "status" => "Unauthorized",
+            "message" => "User ID not found in authentication token",
+            "status_code"=> 403
         ];
     }
     $roleName = isset($user['role_name'])? $user['role_name'] : (isset($user['role']['role_name']) ? $user['role']['role_name'] : null);
@@ -28,7 +46,7 @@ public function create_service_report($data) {
     $missing = $this->validateFields($data, [
         'branch_id',
         'client_id',
-        'user_id',
+        
         'device_type',
         'service_date',
         'service_type',
@@ -67,7 +85,7 @@ public function create_service_report($data) {
         null,
         $data['branch_id'],
         $data['client_id'],
-        $data['user_id'],
+        $user_id,
         $data['device_type'],
         $data['service_date'],
         $data['service_type'],
@@ -81,7 +99,7 @@ public function create_service_report($data) {
     if($success) {
         return [
             'status' => 'success',
-            'message' => 'Service report created successfully'
+            'message' => 'Service report created successfully  with Data: ' . json_encode($data)
         ];
     } else {
         return [
@@ -213,9 +231,17 @@ public function update_service_reports($data) {
                 "status"=> "error",
             ];
         }
-        $service = new Service_Reporting();
-        $results = $service->readAll();
-        if($results) {
+
+        $results = Service_Reporting::readAllWithDetails();
+
+        if ($results !== false) {
+            if (empty($results)) {
+                return [
+                    "message" => "No service reports found",
+                    "status" => "success",
+                    "data" => []
+                ];
+            }
             return [
                 "status" => "success",
                 "message" => "Service reports retrieved successfully",
@@ -223,8 +249,8 @@ public function update_service_reports($data) {
             ];
         } else {
             return [
-                "message" => "No service reports found",
                 "status" => "error",
+                "message" => "A database error occurred."
             ];
         }
     }

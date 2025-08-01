@@ -8,6 +8,7 @@ class Teller_ScannerApi extends ApiResourceBase {
             "read" => [ 'admin','technician'],
             "readAll" => ['admin','technician'],
             "update" => ['admin','technician'],
+            "updateAll" => ['admin','technician'],
             "delete" => ['admin']
         ]);
     }
@@ -211,6 +212,20 @@ $success = $scanner->delete();
         $results = Teller_Scanner::readAll();
 
         if ($results) {
+            $conn = DatabaseConnection::getConnection();
+            foreach ($results as &$scanner) {
+                if (isset($scanner['branch_id'])) {
+                    $sql = "SELECT * FROM branch WHERE branch_id = :branch_id";
+                    $stmt = $conn->prepare($sql);
+                    $stmt->bindParam(":branch_id", $scanner['branch_id']);
+                    $stmt->execute();
+                    $branch = $stmt->fetch(PDO::FETCH_ASSOC);
+                    $scanner['branch'] = $branch ? $branch : null;
+                } else {
+                    $scanner['branch'] = null;
+                }
+            }
+            unset($scanner);
             return [
                 'message' => 'All Teller Scanners retrieved successfully',
                 'status' => 'success',
@@ -225,5 +240,118 @@ $success = $scanner->delete();
                 'count' => 0
             ];
         }
+    }
+    
+    public function updateAll($data) {
+        $user = $this->getAuthenticatedUser();
+        if (!$user) {
+            return [
+                'message' => 'Invalid or expired token. Please log in again.',
+                'status' => 'error'
+            ];
+        }
+
+        if (!$this->checkRoles($user['role_name'], 'updateAll')) {
+            return [
+                'message' => 'Unauthorized: Access denied',
+                'status' => 'error'
+            ];
+        }
+
+        // Accept single object or array of objects
+        if (is_array($data) && isset($data['scanner_id'])) {
+            // Single object as associative array
+            $data = [$data];
+        } elseif (!is_array($data)) {
+            // Not an array or object
+            return [
+                'message' => 'Invalid input: data must be an array of records or a single object',
+                'status' => 'error',
+                'results' => []
+            ];
+        } elseif (array_keys($data) === range(0, count($data) - 1)) {
+            // Array of objects
+            // Do nothing
+        } elseif (isset($data['scanner_id'])) {
+            // Single object as associative array
+            $data = [$data];
+        } else {
+            return [
+                'message' => 'Invalid input: data must be an array of records or a single object with scanner_id',
+                'status' => 'error',
+                'results' => []
+            ];
+        }
+
+        $results = [];
+        foreach ($data as $record) {
+            if (!is_array($record) || !isset($record['scanner_id'])) {
+                $results[] = [
+                    'scanner_id' => isset($record['scanner_id']) ? $record['scanner_id'] : null,
+                    'status' => 'error',
+                    'message' => 'Missing scanner_id or invalid record format',
+                    'updated_data' => $record
+                ];
+                continue;
+            }
+            // Always use the instance update method for partial updates
+            $scanner = new Teller_Scanner(
+                $record['scanner_id'],
+                isset($record['serial_number']) ? $record['serial_number'] : null,
+                isset($record['model']) ? $record['model'] : null,
+                isset($record['status']) ? $record['status'] : null,
+                isset($record['branch_id']) ? $record['branch_id'] : null,
+                isset($record['remarks']) ? $record['remarks'] : null,
+                isset($record['manufactured_date']) ? $record['manufactured_date'] : null,
+                isset($record['warranty_expiry']) ? $record['warranty_expiry'] : null
+            );
+            $success = $scanner->update();
+            // If branch_name is provided and branch_id is set, update the branch name in the branch table
+            if ($success && isset($record['branch_id']) && isset($record['branch_name']) && !empty(trim($record['branch_name']))) {
+                $conn = DatabaseConnection::getConnection();
+                $sql = "UPDATE branch SET branch_name = :branch_name WHERE branch_id = :branch_id";
+                $stmt = $conn->prepare($sql);
+                $stmt->bindParam(":branch_name", $record['branch_name']);
+                $stmt->bindParam(":branch_id", $record['branch_id']);
+                $stmt->execute();
+            }
+            // Fetch the updated record from the database if update was successful
+            $updatedData = $record;
+            if ($success) {
+                $updatedScanner = new Teller_Scanner($record['scanner_id']);
+                $updated = $updatedScanner->read();
+                if ($updated) {
+                    // Add branch info (including branch name) if branch_id exists
+                    if (isset($updated['branch_id'])) {
+                        $conn = DatabaseConnection::getConnection();
+                        $sql = "SELECT * FROM branch WHERE branch_id = :branch_id";
+                        $stmt = $conn->prepare($sql);
+                        $stmt->bindParam(":branch_id", $updated['branch_id']);
+                        $stmt->execute();
+                        $branch = $stmt->fetch(PDO::FETCH_ASSOC);
+                        $updated['branch'] = $branch ? $branch : null;
+                        $updated['branch_name'] = $branch && isset($branch['branch_name']) ? $branch['branch_name'] : null;
+                    } else {
+                        $updated['branch'] = null;
+                        $updated['branch_name'] = null;
+                    }
+                    $updatedData = $updated;
+                }
+            }
+            $results[] = [
+                'scanner_id' => $record['scanner_id'],
+                'status' => $success ? 'success' : 'error',
+                'message' => $success ? 'Updated successfully' : 'Update failed',
+                'updated_data' => $updatedData
+            ];
+        }
+
+        $successCount = count(array_filter($results, function($r) { return $r['status'] === 'success'; }));
+        $errorCount = count($results) - $successCount;
+        return [
+            'message' => $errorCount === 0 ? 'All Teller Scanners updated successfully' : 'Update all operation completed with some errors.',
+            'status' => $errorCount === 0 ? 'success' : ($successCount > 0 ? 'partial' : 'error'),
+            'results' => $results
+        ];
     }
 }

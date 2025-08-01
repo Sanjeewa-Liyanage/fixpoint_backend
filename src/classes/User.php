@@ -53,6 +53,21 @@ class User extends Model{
         $this->role_id = $result['role_id'];
         return true; 
     }
+    static public function searchUser($keyword) {
+        $conn = DatabaseConnection::getConnection();
+        $sql = "SELECT u.user_id, u.username, u.email, u.phone, u.profile_picture, u.role_id, role.role_name
+                FROM users AS u
+                LEFT JOIN roles AS role ON u.role_id = role.role_id
+                WHERE (u.username LIKE :keyword OR u.email LIKE :keyword OR u.phone LIKE :keyword)
+                AND u.role_id = 2";
+        
+        $stmt = $conn->prepare($sql);
+        $likeKeyword = '%' . $keyword . '%';
+        $stmt->bindParam(':keyword', $likeKeyword);
+        $stmt->execute();
+        
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
 
 
   
@@ -131,6 +146,26 @@ class User extends Model{
         $stmt -> bindParam(':user_id', $this->id);
         $success = $stmt -> execute();
         return $success;
+    }
+    public function getById ($id) {
+        $conn = DatabaseConnection::getConnection();
+        $sql = "SELECT * FROM users WHERE user_id = :id";
+        $stmt = $conn->prepare($sql);
+        $stmt->bindParam(':id', $id);
+        $stmt->execute();
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($result === false) {
+            return false; // User not found
+        }
+        
+        $this->id = $result['user_id'];
+        $this->username = $result['username'];
+        $this->email = $result['email'];
+        $this->phone = $result['phone'];
+        $this->profile_picture = $result['profile_picture'];
+        $this->role_id = $result['role_id'];
+        return true;
     }
 
 }

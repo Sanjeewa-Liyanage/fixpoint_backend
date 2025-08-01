@@ -7,6 +7,7 @@ class UserApi extends ApiResourceBase{
             "login"=> ["user", "admin", null],
             "send_verification"=> ["user", "admin", null],                                                                                           
             "verify_otp"=> ["user", "admin", null],
+            "search_users"=> ["admin"],
         ]);
     }
 
@@ -101,6 +102,7 @@ class UserApi extends ApiResourceBase{
 
         }
     }
+    
 
     public function verify_otp($data){
         $missing = $this->validateFields($data, ['email', 'otp']);
@@ -157,6 +159,30 @@ class UserApi extends ApiResourceBase{
         }
     }
 
-    
+    public function search_users($data) {
+        $missing = $this->validateFields($data, ['keyword']);
+        if (!empty($missing)) {
+            return [
+                'message' => 'Invalid Request. Missing fields: ' . implode(', ', $missing),
+                'status' => 'error'
+            ];
+        }
+
+        $searchResults = User::searchUser($data['keyword']);
+        
+        if (!empty($searchResults)) {
+            return [
+                'message' => 'Users found',
+                'status' => 'success',
+                'data' => $searchResults
+            ];
+        } else {
+            return [
+                'message' => 'No users found matching the search criteria',
+                'status' => 'success',
+                'data' => []
+            ];
+        }
+    }
     
 }

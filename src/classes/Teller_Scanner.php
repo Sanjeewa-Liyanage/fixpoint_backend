@@ -83,12 +83,68 @@ class Teller_Scanner extends Model {
 
         return $stmt->execute();
     }
+
+    public function update_all($data) {
+        $conn = DatabaseConnection::getConnection();
+        $results = [];
+        foreach ($data as $scannerData) {
+            $this->scanner_id = $scannerData['scanner_id'];
+            $this->serial_number = $scannerData['serial_number'];
+            $this->model = $scannerData['model'];
+            $this->status = $scannerData['status'];
+            $this->branch_id = $scannerData['branch_id'];
+            $this->remarks = $scannerData['remarks'];
+            $this->manufactured_date = $scannerData['manufactured_date'];
+            $this->warranty_expiry = $scannerData['warranty_expiry'];
+
+            if ($this->update()) {
+                $results[] = ['scanner_id' => $this->scanner_id, 'status' => 'success'];
+            } else {
+                $results[] = ['scanner_id' => $this->scanner_id, 'status' => 'error'];
+            }
+        }
+        return $results;
+    }
+    
     public function delete() {
         $conn = DatabaseConnection::getConnection();
         $sql = "DELETE FROM teller_scanner WHERE scanner_id = :scanner_id";
         $stmt = $conn->prepare($sql);
         $stmt->bindParam(":scanner_id", $this->scanner_id);
         return $stmt->execute();
+    }
+
+    // Static function to update any fields for a given scanner_id
+    public static function updateAll($fields) {
+        if (!isset($fields['scanner_id'])) {
+            return false; // scanner_id is required
+        }
+        $scanner_id = $fields['scanner_id'];
+        unset($fields['scanner_id']);
+
+        if (empty($fields)) {
+            return false; // nothing to update
+        }
+
+        $setClauses = [];
+        $params = [];
+        foreach ($fields as $key => $value) {
+            $setClauses[] = "$key = :$key";
+            $params[":$key"] = $value;
+        }
+        $setClause = implode(', ', $setClauses);
+
+        $sql = "UPDATE teller_scanner SET $setClause WHERE scanner_id = :scanner_id";
+        $conn = DatabaseConnection::getConnection();
+        $stmt = $conn->prepare($sql);
+
+        foreach ($params as $param => $value) {
+            $stmt->bindValue($param, $value);
+        }
+        $stmt->bindValue(":scanner_id", $scanner_id);
+
+        $stmt->execute();
+        return $stmt->rowCount() > 0;
     }
 
    
