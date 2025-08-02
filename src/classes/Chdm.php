@@ -142,6 +142,18 @@ class Chdm extends Model{
         return $results;
         
     }
+    static function searchWithBranchAndState(){
+        $conn = DatabaseConnection::getConnection();
+        $sql = "SELECT * FROM chdm WHERE state = 'passed' AND branch_id IS NOT NULL";
+        $stmt = $conn->prepare($sql);
+        $stmt->execute();
+        $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        if (!$results) {
+            return false; // No results found
+        }
+        return $results;
+    }
 
     public function update_all() {
         $conn = DatabaseConnection::getConnection();

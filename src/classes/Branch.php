@@ -184,7 +184,44 @@ class Branch extends Model{
         $branch = $stmt->fetch(PDO::FETCH_ASSOC);
         return $branch;
     }
-
+  
+    public static function getTellerScannerByBranch($branch_name) {
+        $conn = DatabaseConnection::getConnection();
+        $sql = "SELECT 
+                    b.name AS branch_name,
+                    b.address AS branch_address,
+                    ts.serial_number,
+                    ts.model
+                FROM 
+                    teller_scanner ts
+                JOIN 
+                    branch b ON ts.branch_id = b.branch_id
+                WHERE b.name LIKE :branch_name";
+        $stmt = $conn->prepare($sql);
+        $stmt->bindValue(':branch_name', '%' . $branch_name . '%');
+        $stmt->execute();
+        $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return $result;
+    }
+    
+   public static function getChdmByBranch($branch_name) {
+        $conn = DatabaseConnection::getConnection();
+        $sql = "SELECT 
+                    b.name AS branch_name,
+                    b.address AS branch_address,
+                    chdm.serial_no,
+                    chdm.id
+                FROM 
+                    chdm
+                JOIN 
+                    branch b ON chdm.branch_id = b.branch_id
+                WHERE b.name LIKE :branch_name";
+        $stmt = $conn->prepare($sql);
+        $stmt->bindValue(':branch_name', '%' . $branch_name . '%');
+        $stmt->execute();
+        $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return $result;
+    }
 
     
 
