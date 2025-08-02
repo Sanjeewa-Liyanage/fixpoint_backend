@@ -107,6 +107,20 @@ class Teller_Scanner extends Model {
         }
         return $results;
     }
+    static public function searchTellerScanner($keyword) {
+        $conn = DatabaseConnection::getConnection();
+        $sql = "SELECT * FROM teller_scanner WHERE serial_number LIKE :keyword OR model LIKE :keyword";
+        $stmt = $conn->prepare($sql);
+        $searchKeyword = '%' . $keyword . '%';
+        $stmt->bindParam(':keyword', $searchKeyword);
+        $stmt->execute();
+        $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        if (!$results) {
+            return false; // No results found
+        }
+        return $results;
+    }
     
     public function delete() {
         $conn = DatabaseConnection::getConnection();
@@ -148,6 +162,7 @@ class Teller_Scanner extends Model {
         $stmt->execute();
         return $stmt->rowCount() > 0;
     }
+
 
    
 
