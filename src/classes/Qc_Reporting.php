@@ -20,6 +20,16 @@ class Qc_Reporting extends Model {
         $this->test_details = $test_details;
     }
 
+    public function getChdmIdBySerial($serial_no) {
+        $conn = DatabaseConnection::getConnection();
+        $sql = "SELECT id FROM chdm WHERE serial_no = :serial_no";
+        $stmt = $conn->prepare($sql);
+        $stmt->bindParam(':serial_no', $serial_no);
+        $stmt->execute();
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $result ? $result['id'] : null;
+    }
+
 
   public function create(){
     $conn = DatabaseConnection::getConnection();
@@ -40,7 +50,8 @@ class Qc_Reporting extends Model {
     if ($success) {
         $updateChdm = $conn->prepare("UPDATE chdm SET tested_date = :tested_date, state = :state WHERE id = :chdm_id");
         $updateChdm->bindParam(':tested_date', $this->date);
-        $updateChdm->bindParam(':state', $this->result);
+        $state_lowercase = strtolower($this->result); // Store lowercase result in variable
+        $updateChdm->bindParam(':state', $state_lowercase);
         $updateChdm->bindParam(':chdm_id', $this->chdm_id);
         $updateChdm->execute();
     }
