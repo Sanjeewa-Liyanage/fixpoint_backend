@@ -190,6 +190,7 @@ class Branch extends Model{
         $sql = "SELECT 
                     b.name AS branch_name,
                     b.address AS branch_address,
+                    b.branch_id AS branch_id,
                     ts.serial_number,
                     ts.model
                 FROM 
@@ -209,6 +210,7 @@ class Branch extends Model{
         $sql = "SELECT 
                     b.name AS branch_name,
                     b.address AS branch_address,
+                    b.branch_id AS branch_id,
                     chdm.serial_no,
                     chdm.id
                 FROM 
