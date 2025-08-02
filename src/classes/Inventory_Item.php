@@ -1,4 +1,5 @@
 <?php
+
 class Inventory_Item extends Model{
     public $item_id;
     public $item_name;
@@ -6,6 +7,7 @@ class Inventory_Item extends Model{
     public $description;
     public $manufacturer;
     public $created_at;
+
 
      // Add allowed categories as a static property
     private static $allowed_categories = ['CHDM', 'Teller Scanner'];
@@ -23,6 +25,7 @@ class Inventory_Item extends Model{
         $this->category = $category;
     }
 
+
     public function __construct($item_id = null, $item_name = null, $category = null, $description = null, $manufacturer = null, $created_at = null){
         $this->item_id = $item_id;
         $this->item_name = $item_name;
@@ -31,6 +34,7 @@ class Inventory_Item extends Model{
         $this->manufacturer = $manufacturer;
         $this->created_at = $created_at;
     }
+
 
    public function create(){
     $conn = DatabaseConnection::getConnection();
@@ -43,6 +47,7 @@ class Inventory_Item extends Model{
     $stmt->bindParam(":description", $this->description);
     $stmt->bindParam(":manufacturer", $this->manufacturer);
     $stmt->bindParam(":created_at", $this->created_at);
+
 
     return $stmt->execute();
 }
@@ -70,6 +75,7 @@ class Inventory_Item extends Model{
 
     public function update() {
         $conn = DatabaseConnection::getConnection();
+
         $sql = "UPDATE inventory_item SET 
                     item_name = :item_name,
                     category = :category,
@@ -92,6 +98,7 @@ class Inventory_Item extends Model{
         return false;
 }
 
+
     public function delete(){
         $conn = DatabaseConnection::getConnection();
         $sql = "DELETE FROM inventory_item WHERE item_id = :item_id";
@@ -99,5 +106,14 @@ class Inventory_Item extends Model{
         $stmt->bindParam(":item_id", $this->item_id);
         
         return $stmt->execute();
+    }
+     public static function search($query) {
+        $conn = DatabaseConnection::getConnection();
+        $sql = "SELECT * FROM inventory_item WHERE item_name LIKE :q OR category LIKE :q OR manufacturer LIKE :q ORDER BY item_id";
+        $stmt = $conn->prepare($sql);
+        $likeQuery = "%" . $query . "%";
+        $stmt->bindParam(":q", $likeQuery);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 }
