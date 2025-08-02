@@ -47,4 +47,12 @@ class Client extends Model {
         $stmt->bindParam(":client_id", $this->client_id);
         return $stmt->execute();
     }
+   static  public function getById($client_id) {
+        $conn = DatabaseConnection::getConnection();
+        $sql = "SELECT * FROM client WHERE client_id = :client_id";
+        $stmt = $conn->prepare($sql);
+        $stmt->bindParam(":client_id", $client_id);
+        $stmt->execute();
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
 }

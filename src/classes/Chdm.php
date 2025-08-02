@@ -48,6 +48,16 @@ class Chdm extends Model{
         
         
     }
+    
+    public function readAll() {
+        $conn = DatabaseConnection::getConnection();
+        $sql = "SELECT chdm.*, branch.branch_id AS branch_branch_id, branch.client_id AS branch_client_id, branch.name AS branch_name, branch.address AS branch_address, branch.latitude AS branch_latitude, branch.longitude AS branch_longitude, branch.location AS branch_location, branch.contact_person AS branch_contact_person, branch.phone AS branch_phone, branch.email AS branch_email FROM chdm LEFT JOIN branch ON chdm.branch_id = branch.branch_id ORDER BY chdm.tested_date DESC";
+        $stmt = $conn->prepare($sql);
+        $stmt->execute();
+        $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return $result;
+    }
+    
     public function read_failed() {
         $conn = DatabaseConnection::getConnection();
         $sql = "SELECT * FROM chdm WHERE state = 'failed'";
@@ -99,6 +109,37 @@ class Chdm extends Model{
         $success = $stmt->execute();
         return $success;
     }
+    static public function getNotAssigned() {
+        $conn = DatabaseConnection::getConnection();
+        $sql = "SELECT * FROM chdm WHERE branch_id IS NULL AND state = 'passed'";
+        $stmt = $conn->prepare($sql);
+        $stmt->execute();
+        $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return $result;
+    }
+    static function assignForBranch($serial_no, $branch_id) {
+        $conn = DatabaseConnection::getConnection();
+        $sql = "UPDATE chdm SET branch_id = :branch_id, location = :location WHERE serial_no = :serial_no";
+        $stmt = $conn->prepare($sql);
+        $stmt->bindParam(':branch_id', $branch_id);
+        $stmt->bindParam(':location', $branch_id); // Set location to branch_id
+        $stmt->bindParam(':serial_no', $serial_no);
+        $success = $stmt->execute();
+        return $success;
+    }
 
-    
+    public function update_all() {
+        $conn = DatabaseConnection::getConnection();
+        $sql = "UPDATE chdm SET serial_no = :serial_no, state = :state, location = :location, description = :description, tested_date = :tested_date, branch_id = :branch_id WHERE id = :id";
+        $stmt = $conn->prepare($sql);
+        $stmt->bindParam(':serial_no', $this->serial_no);
+        $stmt->bindParam(':state', $this->state);
+        $stmt->bindParam(':location', $this->location);
+        $stmt->bindParam(':description', $this->description);
+        $stmt->bindParam(':tested_date', $this->tested_date);
+        $stmt->bindParam(':branch_id', $this->branch_id);
+        $stmt->bindParam(':id', $this->id);
+        $success = $stmt->execute();
+        return $success;
+    }
 }
