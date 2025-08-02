@@ -29,8 +29,7 @@ class Qc_ReportingApi extends ApiResourceBase {
 
         }
         $missing = $this-> validateFields($data, [
-            'chdm_id',
-            'qc_officer_id',
+            'serial_no',
             'date',
             'result',
             'remarks',
@@ -42,12 +41,49 @@ class Qc_ReportingApi extends ApiResourceBase {
                 'message'=> 'Missing fields: '. implode(', ', $missing)
             ];
         }
+
+        // Validate result value
+        if(!in_array(strtolower($data['result']), ['passed', 'failed'])){
+            return [
+                'status'=> 'error',
+                'message'=> 'Result must be either "Passed" or "Failed"'
+            ];
+        }
+
+        // Get chdm_id by serial number
+        $qcReporting = new Qc_Reporting();
+        $chdm_id = $qcReporting->getChdmIdBySerial($data['serial_no']);
+        if(!$chdm_id){
+            return [
+                'status'=> 'error',
+                'message'=> 'No CHDM found with serial number: ' . $data['serial_no']
+            ];
+        }
+
+        // Debug: Log user array structure (remove this after testing)
+        error_log("User array structure: " . print_r($user, true));
+
+        // Get user ID from authenticated user
+        if (isset($user['user_id'])) {
+            $qc_officer_id = $user['user_id'];
+        } elseif (isset($user['id'])) {
+            $qc_officer_id = $user['id'];
+        } elseif (isset($user['uid'])) {
+            $qc_officer_id = $user['uid'];
+        } else {
+            return [
+                'status'=> 'error',
+                'message'=> 'Unable to determine user ID from authentication token'
+            ];
+        }
+
+        // Create the QC report
         $qcReporting = new Qc_Reporting(
             null, // qc_id will be auto-incremented
-            $data['chdm_id'],
-            $data['qc_officer_id'],
+            $chdm_id,
+            $qc_officer_id,
             $data['date'],
-            $data['result'],
+            ucfirst(strtolower($data['result'])), // Ensure proper case (Passed/Failed)
             $data['remarks'],
             $data['test_details']
         );
@@ -140,15 +176,34 @@ class Qc_ReportingApi extends ApiResourceBase {
             "status"=> "error"
         ];
     }
-   $missing = $this->validateFields($data, ["chdm_id", "result"]);
+   $missing = $this->validateFields($data, ["serial_no", "result"]);
     if(!empty($missing)){
         return [
             "message"=> "Missing fields: ". implode(", ", $missing),
             "status"=> "error"
         ];
     }
-    $Qc_Reporting = new Qc_Reporting($data['chdm_id'], null, null, $data['result']);
-    $success = $Qc_Reporting->update_result($data['result']);
+
+    // Validate result value
+    if(!in_array(strtolower($data['result']), ['passed', 'failed'])){
+        return [
+            'status'=> 'error',
+            'message'=> 'Result must be either "Passed" or "Failed"'
+        ];
+    }
+
+    // Get chdm_id by serial number
+    $qcReporting = new Qc_Reporting();
+    $chdm_id = $qcReporting->getChdmIdBySerial($data['serial_no']);
+    if(!$chdm_id){
+        return [
+            'status'=> 'error',
+            'message'=> 'No CHDM found with serial number: ' . $data['serial_no']
+        ];
+    }
+
+    $qcReporting = new Qc_Reporting(null, $chdm_id, null, null, ucfirst(strtolower($data['result'])));
+    $success = $qcReporting->update_result(ucfirst(strtolower($data['result'])));
     if($success){
         return [
             "status"=> "success",
@@ -175,7 +230,7 @@ public function update_test_details($data) {
             "status"=> "error"
         ];
 }
-$missing = $this->validateFields($data, ["chdm_id", "test_details"]);
+$missing = $this->validateFields($data, ["serial_no", "test_details"]);
 
     if(!empty($missing)){
         return [
@@ -183,8 +238,19 @@ $missing = $this->validateFields($data, ["chdm_id", "test_details"]);
             "status"=> "error"
         ];
     }
-    $Qc_Reporting = new Qc_Reporting($data['chdm_id'], null, null, $data['test_details']);
-    $success = $Qc_Reporting->update_test_details($data['test_details']);
+
+    // Get chdm_id by serial number
+    $qcReporting = new Qc_Reporting();
+    $chdm_id = $qcReporting->getChdmIdBySerial($data['serial_no']);
+    if(!$chdm_id){
+        return [
+            'status'=> 'error',
+            'message'=> 'No CHDM found with serial number: ' . $data['serial_no']
+        ];
+    }
+
+    $qcReporting = new Qc_Reporting(null, $chdm_id, null, null, null, null, $data['test_details']);
+    $success = $qcReporting->update_test_details($data['test_details']);
     if($success){
         return [
             "status"=> "success",
@@ -211,15 +277,26 @@ public function delete_report($data) {
             "status"=> "error"
         ];
     }
-    $missing = $this->validateFields($data, ["chdm_id"]);
+    $missing = $this->validateFields($data, ["serial_no"]);
     if(!empty($missing)){
         return [
             "message"=> "Missing required fields: ". implode(", ", $missing),
             "status"=> "error"
         ];
     }
-    $Qc_Reporting = new Qc_Reporting($data['chdm_id']);
-    $success = $Qc_Reporting->delete();
+
+    // Get chdm_id by serial number
+    $qcReporting = new Qc_Reporting();
+    $chdm_id = $qcReporting->getChdmIdBySerial($data['serial_no']);
+    if(!$chdm_id){
+        return [
+            'status'=> 'error',
+            'message'=> 'No CHDM found with serial number: ' . $data['serial_no']
+        ];
+    }
+
+    $qcReporting = new Qc_Reporting(null, $chdm_id);
+    $success = $qcReporting->delete();
     if($success){
         return [
             "status"=> "success",
