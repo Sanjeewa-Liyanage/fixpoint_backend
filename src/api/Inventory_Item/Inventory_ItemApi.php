@@ -1,3 +1,4 @@
+    
 <?php
 require_once 'src/utils/JwtHandler.php';
 
@@ -8,7 +9,8 @@ class Inventory_ItemApi extends ApiResourceBase  {
             "read" => ['admin', 'technician', 'Quality Checker'],
             "readAll" => ['admin', 'technician', 'Quality Checker'],
             "update" => ['admin', 'technician', 'Quality Checker'],
-            "delete" => ['admin']
+            "delete" => ['admin'],
+            "search" => ['admin', 'technician', 'Quality Checker']
         ]);
     }
 
@@ -231,5 +233,33 @@ public function update($data){
                 'count' => 0
             ];
         }
+    }
+    public function search($data) {
+        $user = $this->getAuthenticatedUser();
+        if (!$user) {
+            return [
+                'message' => 'Invalid or expired token. Please log in again.',
+                'status' => 'error'
+            ];
+        }
+        if (!$this->checkRoles($user['role_name'], 'search')) {
+            return [
+                'message' => 'Unauthorized: Access denied',
+                'status' => 'error'
+            ];
+        }
+        if (!isset($data['query']) || empty($data['query'])) {
+            return [
+                'message' => 'Missing search query.',
+                'status' => 'error'
+            ];
+        }
+        $results = Inventory_Item::search($data['query']);
+        return [
+            'message' => 'Search completed',
+            'status' => 'success',
+            'data' => $results,
+            'count' => count($results)
+        ];
     }
 }

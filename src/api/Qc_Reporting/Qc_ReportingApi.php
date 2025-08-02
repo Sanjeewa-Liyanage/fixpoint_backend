@@ -7,7 +7,8 @@ class Qc_ReportingApi extends ApiResourceBase {
             "view_failed_reports"=> ["Quality_Checker","admin"],
             "update_result"=> ["Quality_Checker","admin"],
             "update_test_details"=> ["Quality_Checker","admin"],
-            "delete_report"=> ["admin"]
+            "delete_report"=> ["admin"],
+            "read"=> ["Quality_Checker","admin"]
         ]); 
     }
 
@@ -80,8 +81,8 @@ class Qc_ReportingApi extends ApiResourceBase {
             ];
         }
         $Qc_Reporting = new Qc_Reporting();
-        $result = $Qc_Reporting->read();
-        if($result){
+        $result = $Qc_Reporting->read_passed();
+        if($result && count($result) > 0){
             return [
                 "status"=> "success",
                 "message"=> "Quality check reports retrieved successfully",
@@ -89,9 +90,9 @@ class Qc_ReportingApi extends ApiResourceBase {
             ];
         } else {
             return [
-                "message"=> "No passed quality check reports found",
+                "message"=> "No passed quality check reports found or no data available",
                 "status"=> "error",
-                ];
+            ];
         }
 
     }
@@ -228,6 +229,37 @@ public function delete_report($data) {
         return [
             "status"=> "error",
             "message"=> "Failed to delete quality check report"
+        ];
+    }
+}
+
+public function read() {
+    $user = $this->getAuthenticatedUser();
+    if(!$user){
+        return [
+            "status" => "error",
+            "message" => "Invalid or expired token. Please log in again."
+        ];
+    }
+    // Allow both Quality_Checker and admin roles to access
+    if(!$this->checkRoles($user['role_name'], 'view_pass_reports')){
+        return [
+            "status" => "error",
+            "message" => "Unauthorized: Admin or Quality Checker access required"
+        ];
+    }
+    $Qc_Reporting = new Qc_Reporting();
+    $result = $Qc_Reporting->read();
+    if($result && count($result) > 0){
+        return [
+            "status" => "success",
+            "message" => "Quality check reports retrieved successfully",
+            "data" => $result
+        ];
+    } else {
+        return [
+            "status" => "error",
+            "message" => "No quality check reports found or no data available"
         ];
     }
 }
