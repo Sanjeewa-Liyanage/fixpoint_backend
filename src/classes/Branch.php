@@ -196,7 +196,7 @@ class Branch extends Model{
                     teller_scanner ts
                 JOIN 
                     branch b ON ts.branch_id = b.branch_id
-                WHERE b.name LIKE :branch_name";
+                WHERE b.name LIKE :branch_name OR b.address LIKE :branch_name";
         $stmt = $conn->prepare($sql);
         $stmt->bindValue(':branch_name', '%' . $branch_name . '%');
         $stmt->execute();
@@ -215,7 +215,7 @@ class Branch extends Model{
                     chdm
                 JOIN 
                     branch b ON chdm.branch_id = b.branch_id
-                WHERE b.name LIKE :branch_name";
+                WHERE b.name LIKE :branch_name OR b.address LIKE :branch_name";
         $stmt = $conn->prepare($sql);
         $stmt->bindValue(':branch_name', '%' . $branch_name . '%');
         $stmt->execute();
