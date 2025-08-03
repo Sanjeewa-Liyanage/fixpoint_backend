@@ -29,6 +29,7 @@ require_once 'src/classes/Dispatch.php';
 require_once 'src/classes/Client.php';
 
 require_once 'src/classes/ClusterTechnician.php';
+require_once 'src/classes/Notification.php';
 
 
 // Common APIs
@@ -53,6 +54,7 @@ require_once 'src/api/Teller_Scanner/Teller_ScannerApi.php';
 require_once 'src/api/Dispatch/dispatchApi.php';
 
 require_once 'src/api/client/ClientApi.php';
+require_once 'src/api/notification/notificationApi.php';
 
 
 require_once 'src/api/chdm/chdmApi.php';

@@ -204,13 +204,56 @@ class ClusterTechnician extends Model {
      */
     public static function assignTechnician($clusterId, $userId) {
         $conn = DatabaseConnection::getConnection();
-        $sql = "UPDATE technician_cluster SET user_id = :user_id WHERE cluster_id = :cluster_id";
         
-        $stmt = $conn->prepare($sql);
-        $stmt->bindParam(':cluster_id', $clusterId);
-        $stmt->bindParam(':user_id', $userId);
+        // Debug logging
+        error_log("assignTechnician called with clusterId: " . var_export($clusterId, true) . ", userId: " . var_export($userId, true));
         
-        return $stmt->execute();
+        try {
+            $conn->beginTransaction();
+            
+            // Update the cluster assignment
+            $sql = "UPDATE technician_cluster SET user_id = :user_id WHERE cluster_id = :cluster_id";
+            $stmt = $conn->prepare($sql);
+            $stmt->bindParam(':cluster_id', $clusterId);
+            $stmt->bindParam(':user_id', $userId);
+            $result = $stmt->execute();
+            
+            if ($result) {
+                // Get cluster details for notification
+                $clusterSql = "SELECT cluster_branches FROM technician_cluster WHERE cluster_id = :cluster_id";
+                $clusterStmt = $conn->prepare($clusterSql);
+                $clusterStmt->bindParam(':cluster_id', $clusterId);
+                $clusterStmt->execute();
+                $cluster = $clusterStmt->fetch(PDO::FETCH_ASSOC);
+                
+                if ($cluster) {
+                    $branches = json_decode($cluster['cluster_branches'], true);
+                    $branchCount = is_array($branches) ? count($branches) : 0;
+                    
+                    error_log("About to create notification for userId: " . var_export($userId, true) . ", clusterId: " . var_export($clusterId, true) . ", branchCount: " . $branchCount);
+                    
+                    // Create notification (check if Notification class exists)
+                    if (class_exists('Notification')) {
+                        $notificationResult = Notification::createClusterAssignmentNotification($userId, $clusterId, $branchCount);
+                        if (!$notificationResult) {
+                            error_log("Failed to create notification for user {$userId}, cluster {$clusterId}");
+                        } else {
+                            error_log("Successfully created notification for user {$userId}, cluster {$clusterId}");
+                        }
+                    } else {
+                        error_log("Notification class not found when trying to create cluster assignment notification");
+                    }
+                }
+            }
+            
+            $conn->commit();
+            return $result;
+            
+        } catch (Exception $e) {
+            $conn->rollBack();
+            error_log("Error assigning technician: " . $e->getMessage());
+            return false;
+        }
     }
     
     /**
