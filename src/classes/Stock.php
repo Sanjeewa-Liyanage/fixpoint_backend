@@ -6,7 +6,8 @@ class Stock extends Model {
     public $location;
     public $min_threshold;
     public $last_updated;
-
+    
+  
     public function __construct($stock_id = null, $item_id = null, $quantity = null, $location = null,$min_threshold=null, $last_updated = null) {
         $this->stock_id = $stock_id;
         $this->item_id = $item_id;
@@ -30,6 +31,14 @@ class Stock extends Model {
                 return $stmt->execute();
 
     }
+    public static function getItemNameById($item_id) {
+        $conn = DatabaseConnection::getConnection();
+        $stmt = $conn->prepare("SELECT item_name FROM inventory_item WHERE item_id = :item_id");
+        $stmt->bindParam(":item_id", $item_id);
+        $stmt->execute();
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $result ? $result['item_name'] : null;
+    }
 
     public function read() {
         // Implementation for reading a stock record
@@ -51,10 +60,10 @@ class Stock extends Model {
         }
         return false;
     }
-     public static function readAll() {
-        // Implementation for reading all stock records
+    public static function readAll() {
+        // Read all stock records with item_name and category from inventory_item
         $conn = DatabaseConnection::getConnection();
-        $sql = "SELECT * FROM stock ORDER BY stock_id";
+        $sql = "SELECT s.*, i.item_name, i.category FROM stock s LEFT JOIN inventory_item i ON s.item_id = i.item_id ORDER BY s.stock_id";
         $stmt = $conn->prepare($sql);
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);

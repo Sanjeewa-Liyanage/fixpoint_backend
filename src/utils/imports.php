@@ -37,6 +37,7 @@ require_once 'src/api/routine/routineApi.php';
 require_once 'src/api/branch/branchApi.php';
 require_once 'src/api/repair/repairApi.php';
 require_once 'src/api/inventory_item/Inventory_ItemApi.php';
+require_once 'src/api/auth/Inventory_TechnicianApi.php';
 require_once 'src/api/utilities/UtilitiesApi.php';
 require_once 'src/api/Stock/StockApi.php';
 require_once 'src/api/Teller_Scanner/Teller_ScannerApi.php';
