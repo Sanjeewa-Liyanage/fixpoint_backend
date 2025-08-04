@@ -1,4 +1,3 @@
- 
 <?php
 class dispatch extends Model {
     public $dispatch_id;
