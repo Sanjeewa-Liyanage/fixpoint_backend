@@ -275,13 +275,8 @@ class StockApi extends ApiResourceBase {
             ];
         }
 
-        // Get all stock items
-        $conn = DatabaseConnection::getConnection();
-        $sql = "SELECT * FROM stock ORDER BY stock_id";
-        $stmt = $conn->prepare($sql);
-        $stmt->execute();
-        $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
+        // Get all stock items with item_name and category
+        $results = Stock::readAll();
         if ($results) {
             return [
                 'message' => 'All stock items retrieved successfully',
