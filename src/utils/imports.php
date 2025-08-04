@@ -45,8 +45,10 @@ require_once 'src/api/Service_Reporting/Service_ReportingApi.php';
 require_once 'src/api/routine/routineApi.php';
 require_once 'src/api/branch/branchApi.php';
 require_once 'src/api/repair/repairApi.php';
+
 require_once 'src/api/Inventory_Item/Inventory_ItemApi.php';
 require_once 'src/api/Utilities/UtilitiesApi.php';
+
 require_once 'src/api/Stock/StockApi.php';
 require_once 'src/api/Teller_Scanner/Teller_ScannerApi.php';
 
