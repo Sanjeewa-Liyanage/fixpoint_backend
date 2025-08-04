@@ -22,7 +22,11 @@ require_once 'src/classes/Routine.php';
 require_once 'src/classes/Repair.php';
 require_once 'src/classes/Branch.php';
 require_once 'src/classes/client.php';
+
+require_once 'src/classes/Dispatch.php';
+
 require_once 'src/classes/ClusterTechnician.php';
+
 
 // Common APIs
 require_once 'src/api/auth/roleApi.php';
@@ -43,6 +47,7 @@ require_once 'src/api/utilities/UtilitiesApi.php';
 require_once 'src/api/Stock/StockApi.php';
 require_once 'src/api/Teller_Scanner/Teller_ScannerApi.php';
 require_once 'src/api/client/clientApi.php';
+require_once 'src/api/Dispatch/dispatchApi.php';
 
 require_once 'src/api/chdm/chdmApi.php';
 require_once 'src/utils/router.php';
