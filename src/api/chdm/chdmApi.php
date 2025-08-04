@@ -502,7 +502,8 @@ public function search_chdm($data) {
             isset($data['state']) ? $data['state'] : $existingChdm['state'],
             isset($data['location']) ? $data['location'] : $existingChdm['location'],
             isset($data['description']) ? $data['description'] : $existingChdm['description'],
-            isset($data['tested_date']) ? $data['tested_date'] : $existingChdm['tested_date']
+            isset($data['tested_date']) ? $data['tested_date'] : $existingChdm['tested_date'],
+            
         );
         
         $success = $chdm->update_all();

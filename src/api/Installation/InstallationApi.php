@@ -297,12 +297,12 @@ public function update_completion_date($data) {
     if ($success) {
         return [
             'status' => 'success',
-            'message' => 'Installation completion date updated successfully'
+            'message' => 'Installation completion date updated and status set to success'
         ];
     } else {
         return [
             'status' => 'error',
-            'message' => 'Failed to update installation completion date'
+            'message' => 'Failed to update installation completion date and status'
         ];
     }
 }
@@ -463,7 +463,6 @@ public function view_all_installations() {
         isset($data['technician_id']) ? $data['technician_id'] : $existingInstallation['technician_id'],
         isset($data['status']) ? $data['status'] : $existingInstallation['status'],
         isset($data['date']) ? $data['date'] : $existingInstallation['date'],
-        isset($data['completion_date']) ? $data['completion_date'] : $existingInstallation['completion_date'],
         isset($data['software_version']) ? $data['software_version'] : $existingInstallation['software_version'],
         isset($data['ip_address']) ? $data['ip_address'] : $existingInstallation['ip_address'],
         isset($data['notes']) ? $data['notes'] : $existingInstallation['notes'],
