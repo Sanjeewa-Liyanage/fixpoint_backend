@@ -90,12 +90,11 @@ class Inventory_Item extends Model{
         $stmt->bindParam(':created_at', $this->created_at);
         $stmt->bindParam(':item_id', $this->item_id);
         $stmt->execute();
-        // Only return true if a row was actually updated
-        if ($stmt->rowCount() > 0) {
-            return true;
-        }
-        return false;
-}
+        $success = $stmt-> execute();
+        return $success;
+    }
+    
+       
 
 
     public function delete(){
