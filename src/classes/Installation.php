@@ -145,7 +145,7 @@
 
         public function completion_date($completion_date) {
             $conn = DatabaseConnection::getConnection();
-            $sql = "UPDATE installation SET completion_date = :completion_date WHERE installation_id = :installation_id";
+            $sql = "UPDATE installation SET completion_date = :completion_date, status = 'success' WHERE installation_id = :installation_id";
             $stmt = $conn->prepare($sql);
             $stmt->bindParam(':completion_date', $completion_date);
             $stmt->bindParam(':installation_id', $this->installation_id);
@@ -177,14 +177,13 @@
         }
       public function update_all() {
         $conn = DatabaseConnection::getConnection();
-        $sql = "UPDATE installation SET chdm_id = :chdm_id, branch_id = :branch_id, technician_id = :technician_id, status = :status, date = :date, completion_date = :completion_date, software_version = :software_version, ip_address = :ip_address, notes = :notes, serial_no = :serial_no WHERE installation_id = :installation_id";
+        $sql = "UPDATE installation SET chdm_id = :chdm_id, branch_id = :branch_id, technician_id = :technician_id, status = :status, date = :date, software_version = :software_version, ip_address = :ip_address, notes = :notes, serial_no = :serial_no WHERE installation_id = :installation_id";
         $stmt = $conn->prepare($sql);
         $stmt->bindParam(":chdm_id", $this->chdm_id);
         $stmt->bindParam(":branch_id", $this->branch_id);
         $stmt->bindParam(":technician_id", $this->technician_id);
         $stmt->bindParam(":status", $this->status);
         $stmt->bindParam(":date", $this->date);
-        $stmt->bindParam(":completion_date", $this->completion_date);
         $stmt->bindParam(":software_version", $this->software_version);
         $stmt->bindParam(":ip_address", $this->ip_address);
         $stmt->bindParam(":notes", $this->notes);
