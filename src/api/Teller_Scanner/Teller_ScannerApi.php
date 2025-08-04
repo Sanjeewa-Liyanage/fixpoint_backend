@@ -9,7 +9,9 @@ class Teller_ScannerApi extends ApiResourceBase {
             "readAll" => ['admin','technician'],
             "update" => ['admin','technician'],
             "updateAll" => ['admin','technician'],
-            "delete" => ['admin']
+            "delete" => ['admin'],
+            "searchTellerScanner" => ['admin', 'technician']
+
         ]);
     }
 
@@ -188,6 +190,45 @@ $success = $scanner->delete();
             return [
                 'message' => 'Failed to delete Teller Scanner',
                 'status' => 'error'
+            ];
+        }
+    }
+
+    public function searchTellerScanner($data) {
+        $user = $this->getAuthenticatedUser();
+        if (!$user) {
+            return [
+                'message' => 'Invalid or expired token. Please log in again.',
+                'status' => 'error'
+            ];
+        }
+        if (!$this->checkRoles($user['role_name'], 'read')) {
+            return [
+                'message' => 'Unauthorized: Access denied',
+                'status' => 'error'
+            ];
+        }
+
+        $missing = $this->validateFields($data, ['keyword']);
+        if (!empty($missing)) {
+            return [
+                'message' => 'Invalid Request. Missing fields: ' . implode(', ', $missing),
+                'status' => 'error'
+            ];
+        }
+
+        $results = Teller_Scanner::searchTellerScanner($data['keyword']);
+        if ($results) {
+            return [
+                'message' => 'Search results retrieved successfully',
+                'status' => 'success',
+                'data' => $results
+            ];
+        } else {
+            return [
+                'message' => 'No results found for the given keyword',
+                'status' => 'success',
+                'data' => []
             ];
         }
     }

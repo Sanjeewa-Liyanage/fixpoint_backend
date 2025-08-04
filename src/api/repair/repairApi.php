@@ -29,17 +29,31 @@ class RepairApi extends ApiResourceBase {
 
 
 
-        //  to get branch_id from branch_name
-        $branch = Branch::getByName($data['branch_name']);
-        if (!$branch) {
+        // Use branch_id directly from input
+        if (!isset($data['branch_id'])) {
             return [
                 "status" => "error",
-                "message" => "Branch not found with name: " . $data['branch_name']
+                "message" => "Missing branch_id"
             ];
         }
-        $branch_id = $branch['branch_id'];
+        $branch_id = $data['branch_id'];
 
-        $repair = new Repair(null, $data['device_type'], $data['device_id'], $branch_id, $data['technician_id'], $data['start_time'],null,null,null, $data['virtual_support_link']);
+        // Get technician_id from user token
+        $technician_id = null;
+        if (isset($user['user_id'])) {
+            $technician_id = $user['user_id'];
+        } elseif (isset($user['id'])) {
+            $technician_id = $user['id'];
+        } elseif (isset($user['uid'])) {
+            $technician_id = $user['uid'];
+        }
+        if (!$technician_id) {
+            return [
+                "status" => "error",
+                "message" => "Technician ID not found in authentication token"
+            ];
+        }
+        $repair = new Repair(null, $data['device_type'], $data['device_id'], $branch_id, $technician_id, $data['start_time'],null,null,null, $data['virtual_support_link']);
         $success = $repair->create();
 
         if ($success) {

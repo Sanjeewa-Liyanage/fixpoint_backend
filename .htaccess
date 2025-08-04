@@ -1,6 +1,15 @@
 RewriteEngine On
+
+# Handle playground path - redirect to playground directory
 RewriteCond %{REQUEST_URI} ^/playground [NC]
-RewriteRule ^ /src/playground/index.php [L]
+RewriteRule ^playground/(.*)$ src/playground/$1 [L]
+
+# Handle direct playground access
+RewriteCond %{REQUEST_URI} ^/playground/?$ [NC]
+RewriteRule ^playground/?$ src/playground/index.php [L]
+
+# For all other requests, check if file or directory exists
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_URI} !^/playground [NC]
 RewriteRule ^(.*)$ index.php [QSA,L]

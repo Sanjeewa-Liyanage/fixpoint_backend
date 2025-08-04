@@ -127,6 +127,21 @@ class Chdm extends Model{
         $success = $stmt->execute();
         return $success;
     }
+    static public function searchFailedChdm($keyword) {
+        $conn = DatabaseConnection::getConnection();
+        $sql = "SELECT * FROM chdm WHERE state = 'failed' AND (serial_no LIKE :keyword)";
+        $stmt = $conn->prepare($sql);
+        $searchKeyword = '%' . $keyword . '%';
+        $stmt->bindParam(':keyword', $searchKeyword);
+        $stmt->execute();
+        $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        if (!$results) {
+            return false; // No results found
+        }
+        return $results;
+        
+    }
 
     public function update_all() {
         $conn = DatabaseConnection::getConnection();

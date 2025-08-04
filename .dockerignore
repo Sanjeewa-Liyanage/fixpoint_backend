@@ -1,0 +1,27 @@
+# Docker ignore file
+.git
+.gitignore
+README.md
+README-Docker.md
+docker-compose.yml
+.env
+.env.example
+*.log
+.DS_Store
+Thumbs.db
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Old config files (if any remain)
+.htaccess
+web.config
+.user.ini
+startup.sh
+debug.sh
+nginx.conf
+routes.json
+nginx/
+.nginx-config/
+.nginx

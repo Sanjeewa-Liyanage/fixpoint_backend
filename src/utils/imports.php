@@ -21,9 +21,12 @@ require_once 'src/classes/Teller_Scanner.php';
 require_once 'src/classes/Routine.php';
 require_once 'src/classes/Repair.php';
 require_once 'src/classes/Branch.php';
-require_once 'src/classes/client.php';
+
 
 require_once 'src/classes/Dispatch.php';
+
+
+require_once 'src/classes/Client.php';
 
 require_once 'src/classes/ClusterTechnician.php';
 
@@ -34,7 +37,7 @@ require_once 'src/api/auth/userApi.php';
 require_once 'src/api/auth/profileApi.php';
 
 // Himali Branch APIs
-require_once 'src/api/installation/installationApi.php';
+require_once 'src/api/Installation/InstallationApi.php';
 require_once 'src/api/Qc_Reporting/Qc_ReportingApi.php';
 require_once 'src/api/Service_Reporting/Service_ReportingApi.php';
 
@@ -42,13 +45,17 @@ require_once 'src/api/Service_Reporting/Service_ReportingApi.php';
 require_once 'src/api/routine/routineApi.php';
 require_once 'src/api/branch/branchApi.php';
 require_once 'src/api/repair/repairApi.php';
-require_once 'src/api/inventory_item/Inventory_ItemApi.php';
 
-require_once 'src/api/utilities/UtilitiesApi.php';
+require_once 'src/api/Inventory_Item/Inventory_ItemApi.php';
+require_once 'src/api/Utilities/UtilitiesApi.php';
+
 require_once 'src/api/Stock/StockApi.php';
 require_once 'src/api/Teller_Scanner/Teller_ScannerApi.php';
-require_once 'src/api/client/clientApi.php';
+
 require_once 'src/api/Dispatch/dispatchApi.php';
+
+require_once 'src/api/client/ClientApi.php';
+
 
 require_once 'src/api/chdm/chdmApi.php';
 require_once 'src/utils/router.php';
