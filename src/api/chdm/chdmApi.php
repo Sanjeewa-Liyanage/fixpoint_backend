@@ -456,8 +456,7 @@ public function assignForBranch($data) {
             isset($data['state']) ? $data['state'] : $existingChdm['state'],
             isset($data['location']) ? $data['location'] : $existingChdm['location'],
             isset($data['description']) ? $data['description'] : $existingChdm['description'],
-            isset($data['tested_date']) ? $data['tested_date'] : $existingChdm['tested_date'],
-            isset($data['branch_id']) ? $data['branch_id'] :$existingChdm['branch_id']
+            isset($data['tested_date']) ? $data['tested_date'] : $existingChdm['tested_date']
         );
         
         $success = $chdm->update_all();
