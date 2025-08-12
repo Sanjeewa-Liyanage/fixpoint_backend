@@ -10,7 +10,8 @@ class ProfileApi extends ApiResourceBase{
             "getAll" => ['admin'],
             'update'=> ['admin','Technician','Quality_Checker'],
             'delete'=> ['admin'],
-            'getAllUsers' => ['admin']
+            'getAllUsers' => ['admin'],
+            'getProfile' => ['admin', 'user', 'Technician', 'Quality_Checker']
         ]);
     }
 // create a new user profile
@@ -223,6 +224,60 @@ public function getAll($data){
         } else {
             return [
                 'message' => 'Failed to retrieve users',
+                'status' => 'error'
+            ];
+        }
+    }
+
+    // Get current user's profile using ID from JWT token
+    public function getProfile($data = null){
+        $authenticatedUser = $this->getAuthenticatedUser();
+        if (!$authenticatedUser) {
+            return [
+                'message' => 'Invalid authentication token',
+                'status' => 'error'
+            ];
+        }
+        
+        if(!$this->checkRoles($authenticatedUser['role_name'], 'getProfile')) {
+            return [
+                'message' => 'Unauthorized access',
+                'status' => 'error'
+            ];
+        }
+        
+        // Extract user ID from the authenticated user token - JWT stores it as 'id'
+        $userId = $authenticatedUser['id'];
+        
+        if (!$userId) {
+            return [
+                'message' => 'User ID not found in token',
+                'status' => 'error'
+            ];
+        }
+        
+        $user = new User();
+        $result = $user->getById($userId);
+        
+        if ($result) {
+            // Remove sensitive information before returning
+            $userProfile = [
+                'user_id' => $user->id,
+                'username' => $user->username,
+                'email' => $user->email,
+                'phone' => $user->phone,
+                'profile_picture' => $user->profile_picture,
+                'role_id' => $user->role_id
+            ];
+            
+            return [
+                'message' => 'Profile retrieved successfully',
+                'status' => 'success',
+                'data' => $userProfile
+            ];
+        } else {
+            return [
+                'message' => 'User profile not found',
                 'status' => 'error'
             ];
         }
