@@ -7,6 +7,7 @@ class Qc_ReportingApi extends ApiResourceBase {
             "view_failed_reports"=> ["Quality_Checker","admin"],
             "update_result"=> ["Quality_Checker","admin"],
             "update_test_details"=> ["Quality_Checker","admin"],
+            "update_report"=> ["Quality_Checker","admin"],
             "delete_report"=> ["admin"],
             "read"=> ["Quality_Checker","admin"]
         ]); 
@@ -162,25 +163,29 @@ class Qc_ReportingApi extends ApiResourceBase {
     ];
  }
 }
-  public function update_result($data) {
+  
+public function update_report($data) {
     $user = $this->getAuthenticatedUser();
     if(!$user){
         return [
-            "message"=> "Invalid or expired token. Please log in again.",
             "status"=> "error",
+            "message"=> "Invalid or expired token. Please log in again."
         ];
     }
-    if(!$this->checkRoles($user['role_name'], 'update_result')){
+    
+    $roleName = isset($user['role_name']) ? $user['role_name'] : (isset($user['role']['role_name'])? $user['role']['role_name'] : null);
+    if(!$this->checkRoles($roleName, 'update_report')){
         return [
-            "message"=> "Unauthorized: Admin or Quality Checker access required",
-            "status"=> "error"
+            "status"=> "error",
+            "message"=> "Unauthorized: Admin or Quality Checker access required"
         ];
     }
-   $missing = $this->validateFields($data, ["serial_no", "result"]);
+    
+    $missing = $this->validateFields($data, ["chdm_id", "result", "remarks", "test_details"]);
     if(!empty($missing)){
         return [
-            "message"=> "Missing fields: ". implode(", ", $missing),
-            "status"=> "error"
+            "status"=> "error",
+            "message"=> "Missing required fields: ". implode(", ", $missing)
         ];
     }
 
@@ -192,77 +197,64 @@ class Qc_ReportingApi extends ApiResourceBase {
         ];
     }
 
-    // Get chdm_id by serial number
-    $qcReporting = new Qc_Reporting();
-    $chdm_id = $qcReporting->getChdmIdBySerial($data['serial_no']);
-    if(!$chdm_id){
+    // Use the provided chdm_id directly
+    $chdm_id = $data['chdm_id'];
+    
+    // Verify that the CHDM exists
+    $conn = DatabaseConnection::getConnection();
+    $chdmCheckSql = "SELECT id FROM chdm WHERE id = :chdm_id";
+    $chdmCheckStmt = $conn->prepare($chdmCheckSql);
+    $chdmCheckStmt->bindParam(':chdm_id', $chdm_id);
+    $chdmCheckStmt->execute();
+    $chdmExists = $chdmCheckStmt->fetch(PDO::FETCH_ASSOC);
+    
+    if(!$chdmExists){
         return [
             'status'=> 'error',
-            'message'=> 'No CHDM found with serial number: ' . $data['serial_no']
+            'message'=> 'No CHDM found with ID: ' . $data['chdm_id']
         ];
     }
 
-    $qcReporting = new Qc_Reporting(null, $chdm_id, null, null, ucfirst(strtolower($data['result'])));
-    $success = $qcReporting->update_result(ucfirst(strtolower($data['result'])));
+    // Check if QC report exists for this CHDM
+    $conn = DatabaseConnection::getConnection();
+    $checkSql = "SELECT qc_id FROM quality_check WHERE chdm_id = :chdm_id";
+    $checkStmt = $conn->prepare($checkSql);
+    $checkStmt->bindParam(':chdm_id', $chdm_id);
+    $checkStmt->execute();
+    $existingReport = $checkStmt->fetch(PDO::FETCH_ASSOC);
+    
+    if(!$existingReport){
+        return [
+            'status'=> 'error',
+            'message'=> 'No QC report found for CHDM ID: ' . $data['chdm_id']
+        ];
+    }
+
+    // Create QC Reporting object with updated data
+    $qcReporting = new Qc_Reporting(
+        null,
+        $chdm_id,
+        null, // qc_officer_id not needed for update
+        null, // date not needed for update
+        ucfirst(strtolower($data['result'])), // Ensure proper case (Passed/Failed)
+        $data['remarks'],
+        $data['test_details']
+    );
+    
+    $success = $qcReporting->update();
     if($success){
         return [
             "status"=> "success",
-            "message"=> "Quality check result updated successfully"
+            "message"=> "Quality check report updated successfully"
         ];
     } else {
         return [
             "status"=> "error",
-            "message"=> "Failed to update quality check result"
-        ];
-  }
-}
-public function update_test_details($data) {
-    $user = $this->getAuthenticatedUser();
-    if(!$user){
-        return [
-            "message"=> "Invalid or expired token. Please log in again.",
-            "status"=> "error",
-        ];
-    }
-    if(!$this->checkRoles($user["role_name"], "update_test_details")){
-        return [
-            "message"=> "Unauthorized: Admin or Quality Checker access required",
-            "status"=> "error"
-        ];
-}
-$missing = $this->validateFields($data, ["serial_no", "test_details"]);
-
-    if(!empty($missing)){
-        return [
-            "message"=> "Missing fields: ". implode(", ", $missing),
-            "status"=> "error"
-        ];
-    }
-
-    // Get chdm_id by serial number
-    $qcReporting = new Qc_Reporting();
-    $chdm_id = $qcReporting->getChdmIdBySerial($data['serial_no']);
-    if(!$chdm_id){
-        return [
-            'status'=> 'error',
-            'message'=> 'No CHDM found with serial number: ' . $data['serial_no']
-        ];
-    }
-
-    $qcReporting = new Qc_Reporting(null, $chdm_id, null, null, null, null, $data['test_details']);
-    $success = $qcReporting->update_test_details($data['test_details']);
-    if($success){
-        return [
-            "status"=> "success",
-            "message"=> "Test details updated successfully"
-        ];
-    } else {
-        return [
-            "status"=> "error",
-            "message"=> "Failed to update test details"
+            "message"=> "Failed to update quality check report"
         ];
     }
 }
+
 public function delete_report($data) {
     $user = $this->getAuthenticatedUser();
     if(!$user){

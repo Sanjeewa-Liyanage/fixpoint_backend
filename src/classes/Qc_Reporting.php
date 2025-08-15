@@ -101,33 +101,32 @@ class Qc_Reporting extends Model {
 
 
 
-  public function update_result($result = null) {
-    $conn = DatabaseConnection::getConnection();
-    $sql = "UPDATE quality_check SET result = :result WHERE chdm_id = :chdm_id";
-    $stmt = $conn->prepare($sql);
-    $stmt->bindParam(':result', $result);
-    $stmt->bindParam(':chdm_id', $this->chdm_id);
-    $success = $stmt->execute();
-    return $success;
-  }
-
-
-
-  public function update_test_details($test_details = null) {
-    $conn = DatabaseConnection::getConnection();
-    $sql = "UPDATE quality_check SET test_details = :test_details WHERE chdm_id = :chdm_id";
-    $stmt = $conn->prepare($sql);
-    $stmt->bindParam(':test_details', $test_details);
-    $stmt->bindParam(':chdm_id', $this->chdm_id);
-    $success = $stmt->execute();
-    return $success;
-  }
-
+  
 
   public function update() {
-        return false;
+    $conn = DatabaseConnection::getConnection();
+    
+    // Update quality_check table
+    $sql = "UPDATE quality_check SET result = :result, remarks = :remarks, test_details = :test_details WHERE chdm_id = :chdm_id";
+    $stmt = $conn->prepare($sql);
+    $stmt->bindParam(':result', $this->result);
+    $stmt->bindParam(':remarks', $this->remarks);
+    $stmt->bindParam(':test_details', $this->test_details);
+    $stmt->bindParam(':chdm_id', $this->chdm_id);
+    
+    $success = $stmt->execute();
+    
+    // If update successful, also update state in chdm table
+    if ($success) {
+        $updateChdm = $conn->prepare("UPDATE chdm SET state = :state WHERE id = :chdm_id");
+        $state_lowercase = strtolower($this->result); // Store lowercase result in variable
+        $updateChdm->bindParam(':state', $state_lowercase);
+        $updateChdm->bindParam(':chdm_id', $this->chdm_id);
+        $updateChdm->execute();
     }
-
+    
+    return $success;
+  }
 
   public function delete() {
     $conn = DatabaseConnection::getConnection();

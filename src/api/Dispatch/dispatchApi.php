@@ -30,15 +30,21 @@ class dispatchApi extends ApiResourceBase {
         }
         // Debug: log user array (remove in production)
         // error_log('Authenticated user: ' . print_r($user, true));
-        // Try to get user id from possible keys
-        $user_id = isset($user['user_id']) ? $user['user_id'] : (isset($user['id']) ? $user['id'] : (isset($user['userId']) ? $user['userId'] : null));
-        if (!$user_id) {
+        
+        // Get user ID from authenticated user
+        if (isset($user['user_id'])) {
+            $qc_officer_id = $user['user_id'];
+        } elseif (isset($user['id'])) {
+            $qc_officer_id = $user['id'];
+        } elseif (isset($user['uid'])) {
+            $qc_officer_id = $user['uid'];
+        } else {
             return [
-                "status" => "error",
-                "message" => "Authenticated user does not have a user_id field"
+                'status' => 'error',
+                'message' => 'Unable to determine user ID from authentication token'
             ];
         }
-        $data['qc_officer_id'] = $user_id;
+        $data['qc_officer_id'] = $qc_officer_id;
         if (!$this->checkRoles($user['role_name'], 'create_dispatch')) {
             return [
                 "status" => "error",
@@ -78,18 +84,77 @@ class dispatchApi extends ApiResourceBase {
             }
         }
 
-        $dispatch = new dispatch(null, $item_id, $data['qc_officer_id'], $data['warehouse_name'], $data['quantity'], $data['date'], $data['purpose'], 'Dispatched');
-        $success = $dispatch->create();
-
-        if ($success) {
-            return [
-                "status" => "success",
-                "message" => "Dispatch created successfully."
-            ];
-        } else {
+        // Check current stock quantity before creating dispatch
+        $conn = DatabaseConnection::getConnection();
+        $stockSql = "SELECT quantity FROM stock WHERE item_id = :item_id";
+        $stockStmt = $conn->prepare($stockSql);
+        $stockStmt->bindParam(":item_id", $item_id);
+        $stockStmt->execute();
+        $stockRow = $stockStmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$stockRow) {
             return [
                 "status" => "error",
-                "message" => "Database error: Failed to create dispatch."
+                "message" => "Item not found in stock."
+            ];
+        }
+        
+        $currentStock = $stockRow['quantity'];
+        $dispatchQuantity = $data['quantity'];
+        
+        // Check if enough stock is available
+        if ($currentStock < $dispatchQuantity) {
+            return [
+                "status" => "error",
+                "message" => "Insufficient stock. Available: {$currentStock}, Requested: {$dispatchQuantity}"
+            ];
+        }
+
+        // Begin transaction to ensure data consistency
+        $conn->beginTransaction();
+        
+        try {
+            // Create the dispatch
+            $dispatch = new dispatch(null, $item_id, $data['qc_officer_id'], $data['warehouse_name'], $data['quantity'], $data['date'], $data['purpose'], 'Dispatched');
+            $success = $dispatch->create();
+
+            if (!$success) {
+                $conn->rollBack();
+                return [
+                    "status" => "error",
+                    "message" => "Database error: Failed to create dispatch."
+                ];
+            }
+
+            // Update stock quantity (reduce by dispatch quantity)
+            $newQuantity = $currentStock - $dispatchQuantity;
+            $updateStockSql = "UPDATE stock SET quantity = :new_quantity WHERE item_id = :item_id";
+            $updateStockStmt = $conn->prepare($updateStockSql);
+            $updateStockStmt->bindParam(":new_quantity", $newQuantity);
+            $updateStockStmt->bindParam(":item_id", $item_id);
+            $stockUpdateSuccess = $updateStockStmt->execute();
+
+            if (!$stockUpdateSuccess) {
+                $conn->rollBack();
+                return [
+                    "status" => "error",
+                    "message" => "Database error: Failed to update stock quantity."
+                ];
+            }
+
+            // Commit transaction
+            $conn->commit();
+            
+            return [
+                "status" => "success",
+                "message" => "Dispatch created successfully. Stock updated from {$currentStock} to {$newQuantity}."
+            ];
+            
+        } catch (Exception $e) {
+            $conn->rollBack();
+            return [
+                "status" => "error",
+                "message" => "Database error: " . $e->getMessage()
             ];
         }
     }
