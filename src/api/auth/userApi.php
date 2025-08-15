@@ -1,5 +1,9 @@
 <?php
 require_once 'src/utils/ApiResourceBase.php';
+require_once 'src/utils/imports.php';
+require_once 'src/utils/AzureEmailService.php'; // added email service
+
+use Fixpoint\Utils\AzureEmailService; // import namespaced class
 
 class UserApi extends ApiResourceBase{
     public function __construct(){
@@ -58,7 +62,8 @@ class UserApi extends ApiResourceBase{
         ];
     }
 }
-    public function send_verification($data){
+    public function send_verification($data)
+    {
         $missing = $this->validateFields($data, ['email']);
         if (!empty($missing)) {
             return [
@@ -66,40 +71,51 @@ class UserApi extends ApiResourceBase{
                 'status' => 'error'
             ];
         }
+
         $conn = DatabaseConnection::getConnection();
         $sql = 'SELECT * FROM users WHERE email = :email';
         $stmt = $conn->prepare($sql);
         $stmt->bindValue(':email', $data['email']);
         $stmt->execute();
-        $result = $stmt->fetch(PDO::FETCH_ASSOC);
-        if($result){
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($user) {
             $to = $data['email'];
-            $subject = "Password Reset Otp";
             $otp = rand(100000, 999999);
-            $message = "Your OTP for password reset is: " . $otp;
-            $headers = "From: no-reply@example.com";
-            
+
+            // Save OTP to your database as before
             $insert_sql = 'INSERT INTO verification_code (user_id, otp, email) VALUES (:user_id, :otp, :email)';
             $insert_stmt = $conn->prepare($insert_sql);
-            $insert_stmt->bindValue(':user_id', $result['user_id']);
+            $insert_stmt->bindValue(':user_id', $user['user_id']);
             $insert_stmt->bindValue(':otp', $otp);
-            $insert_stmt->bindValue(':email', $result['email']);
+            $insert_stmt->bindValue(':email', $user['email']);
             $insert_stmt->execute();
+            
+            // --- THIS IS THE CORRECTED PART ---
+
+            // 1. Use the FULL connection string with "endpoint="
+            $connectionString = "endpoint=https://fixpoit-mailler.unitedstates.communication.azure.com/;accesskey=DlCOIqLviNq3RKnhC10g61vOZ46nN3qtE4a3DR5IRke2vLzHJ6jnJQQJ99BHACULyCpQCLZ2AAAAAZCSSthx";
+
+            // 2. Use the SENDER ADDRESS with the GUID-based domain from your working JS sample
+            $senderAddress = "DoNotReply@1150820c-c077-40e5-bf54-90e4e6adcb7e.azurecomm.net";
+
+            // Configure the service with the correct values
+            AzureEmailService::configure($connectionString, $senderAddress);
+
+            // Send the email with username
+            $result = AzureEmailService::sendOtpEmail($to, (string)$otp, $user['username']);
 
             return [
-                'message' => 'Verification code sent to your email'." ". $data['email'] ." ". $otp,
-                'status' => 'success'
-                //todo: add email server here 
+                'message' => 'Verification code sent to your email ' . $data['email'] . '. OTP: ' . $otp, // For debugging
+                'status' => 'success',
+                
             ];
-            
+
         } else {
             return [
                 'message' => 'User not found',
                 'status' => 'error'
             ];
-
-
-
         }
     }
     

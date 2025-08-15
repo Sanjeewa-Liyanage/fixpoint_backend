@@ -21,6 +21,7 @@ require_once 'src/classes/Teller_Scanner.php';
 require_once 'src/classes/Routine.php';
 require_once 'src/classes/Repair.php';
 require_once 'src/classes/Branch.php';
+require_once 'src/utils/AzureEmailService.php';
 
 
 require_once 'src/classes/Dispatch.php';
@@ -29,6 +30,7 @@ require_once 'src/classes/Dispatch.php';
 require_once 'src/classes/Client.php';
 
 require_once 'src/classes/ClusterTechnician.php';
+require_once 'src/classes/Notification.php';
 
 
 // Common APIs
@@ -40,6 +42,7 @@ require_once 'src/api/auth/profileApi.php';
 require_once 'src/api/Installation/InstallationApi.php';
 require_once 'src/api/Qc_Reporting/Qc_ReportingApi.php';
 require_once 'src/api/Service_Reporting/Service_ReportingApi.php';
+
 
 // Dev Branch APIs
 require_once 'src/api/routine/routineApi.php';
@@ -55,6 +58,7 @@ require_once 'src/api/Teller_Scanner/Teller_ScannerApi.php';
 require_once 'src/api/Dispatch/dispatchApi.php';
 
 require_once 'src/api/client/ClientApi.php';
+require_once 'src/api/notification/notificationApi.php';
 
 
 require_once 'src/api/chdm/chdmApi.php';

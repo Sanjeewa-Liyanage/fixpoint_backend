@@ -14,7 +14,8 @@ class BranchApi extends ApiResourceBase{
             "update_branch_email" => ["admin","technician"],
             "readAll_branches" => ["admin","technician"],
             "search_branch" => ["admin", "technician"],
-            
+            "getTellerScanner" =>["admin","technician"],
+            "getChdm" => ["admin","technician"],
         ]);
 
     }
@@ -188,6 +189,78 @@ class BranchApi extends ApiResourceBase{
             ];
         }
     } 
+    public function getChdm($data){
+         $user = $this->getAuthenticatedUser();
+        if(!$user){
+            return [
+                "status" => "error",
+                "message" => "Invalid authentication token"
+            ];
+        }
+        if(!$this->checkRoles($user['role_name'], 'search_branch')) {
+            return [
+                "status" => "error",
+                "message" => "Unauthorized: Admin or technician access required"
+            ];
+        }
+        $missing = $this->validateFields($data, ['searchTerm']);
+        if (!empty($missing)) {
+            return [
+                "status" => "error",
+                "message" => "Invalid Request. Missing fields: " . implode(", ", $missing)
+            ];
+        }
+        $result = Branch::getChdmByBranch($data['searchTerm']);
+        if ($result && count($result) > 0) {
+            return [
+                "status" => "success",
+                "data" => $result
+            ];
+        } else {
+            return [
+                "status" => "error",
+                "message" => "No CHDM found for the given branch name."
+            ];
+        }
+    }
+    public function getTellerScanner($data){
+        $user = $this->getAuthenticatedUser();
+        if(!$user){
+            return [
+                "status" => "error",
+                "message" => "Invalid authentication token"
+            ];
+        }
+        if(!$this->checkRoles($user['role_name'], 'search_branch')) {
+            return [
+                "status" => "error",
+                "message" => "Unauthorized: Admin or technician access required"
+            ];
+        }
+        $missing = $this->validateFields($data, ['searchTerm']);
+        if (!empty($missing)) {
+            return [
+                "status" => "error",
+                "message" => "Invalid Request. Missing fields: " . implode(", ", $missing)
+            ];
+        }
+        // Get teller scanner details for branches matching the search term
+        $result = Branch::getTellerScannerByBranch($data['searchTerm']);
+        if ($result && count($result) > 0) {
+            return [
+                "status" => "success",
+                "data" => $result
+            ];
+        } else {
+            return [
+                "status" => "error",
+                "message" => "No teller scanners found for the given branch name."
+            ];
+        }
+    }
+    
+
+
     public function search_branch($data) {
         $user = $this->getAuthenticatedUser();
         if(!$user){
