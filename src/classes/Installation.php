@@ -47,28 +47,30 @@
             return $success;
         }
         public function read() {
-            $conn = DatabaseConnection::getConnection();
-            $sql = "SELECT 
-                        i.installation_id,
-                        i.chdm_id,
-                        i.branch_id,
-                        i.technician_id,
-                        i.status,
-                        i.date,
-                        i.completion_date,
-                        i.software_version,
-                        i.ip_address,
-                        i.notes,
-                        i.serial_no,
-                        u.username as technician_name,
-                        u.email as technician_email,
-                        u.phone as technician_phone
-                    FROM installation i
-                    LEFT JOIN users u ON i.technician_id = u.user_id";
-            $stmt = $conn->prepare($sql);
-            $stmt->execute();
-            $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            return $result;
+        $conn = DatabaseConnection::getConnection();
+        $sql = "SELECT 
+                    i.installation_id,
+                    i.chdm_id,
+                    i.branch_id,
+                    b.name as branch_name,
+                    i.technician_id,
+                    i.status,
+                    i.date,
+                    i.completion_date,
+                    i.software_version,
+                    i.ip_address,
+                    i.notes,
+                    i.serial_no,
+                    u.username as technician_name,
+                    u.email as technician_email,
+                    u.phone as technician_phone
+                FROM installation i
+                LEFT JOIN users u ON i.technician_id = u.user_id
+                LEFT JOIN branch b ON i.branch_id = b.branch_id";
+        $stmt = $conn->prepare($sql);
+        $stmt->execute();
+        $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return $result;
         }
 
         
@@ -145,7 +147,7 @@
 
         public function completion_date($completion_date) {
             $conn = DatabaseConnection::getConnection();
-            $sql = "UPDATE installation SET completion_date = :completion_date WHERE installation_id = :installation_id";
+            $sql = "UPDATE installation SET completion_date = :completion_date, status = 'success' WHERE installation_id = :installation_id";
             $stmt = $conn->prepare($sql);
             $stmt->bindParam(':completion_date', $completion_date);
             $stmt->bindParam(':installation_id', $this->installation_id);
@@ -177,14 +179,13 @@
         }
       public function update_all() {
         $conn = DatabaseConnection::getConnection();
-        $sql = "UPDATE installation SET chdm_id = :chdm_id, branch_id = :branch_id, technician_id = :technician_id, status = :status, date = :date, completion_date = :completion_date, software_version = :software_version, ip_address = :ip_address, notes = :notes, serial_no = :serial_no WHERE installation_id = :installation_id";
+        $sql = "UPDATE installation SET chdm_id = :chdm_id, branch_id = :branch_id, technician_id = :technician_id, status = :status, date = :date, software_version = :software_version, ip_address = :ip_address, notes = :notes, serial_no = :serial_no WHERE installation_id = :installation_id";
         $stmt = $conn->prepare($sql);
         $stmt->bindParam(":chdm_id", $this->chdm_id);
         $stmt->bindParam(":branch_id", $this->branch_id);
         $stmt->bindParam(":technician_id", $this->technician_id);
         $stmt->bindParam(":status", $this->status);
         $stmt->bindParam(":date", $this->date);
-        $stmt->bindParam(":completion_date", $this->completion_date);
         $stmt->bindParam(":software_version", $this->software_version);
         $stmt->bindParam(":ip_address", $this->ip_address);
         $stmt->bindParam(":notes", $this->notes);

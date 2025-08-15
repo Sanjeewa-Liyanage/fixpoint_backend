@@ -10,6 +10,8 @@ class ChdmApi extends ApiResourceBase{
         "update_location" => ["admin", "quality_checker"],
         "update_branch_id" => ["admin", "quality_checker"],
         "delete" => ["admin"],
+        "search_chdm" => ["admin", "quality_checker"],
+        
 
         "view_all_chdm" => ["admin", "quality_checker","technician"],
         "update_all_chdm" => ["admin", "quality_checker"],
@@ -329,7 +331,7 @@ public function assignForBranch($data) {
         }
 
         $chdm = new Chdm(null, $data['serial_no'], null, null, null, null, $data['branch_id']);
-        $success = $chdm->assignForBranch();
+        $success = $chdm->assignForBranch($data['serial_no'], $data['branch_id']);
         
         if ($success) {
             return [
@@ -343,7 +345,51 @@ public function assignForBranch($data) {
             ];
         }
     }
+public function search_chdm($data) {
+        $user = $this->getAuthenticatedUser();
+        if (!$user) {
+            return [
+                "message"=> "Invalid or expired token. Please log in again.",
+                "status"=> "error"
+            ];
+        }
 
+        if (!$this->checkRoles($user["role_name"], "search_chdm")){
+            return [
+                "message"=> "Unauthorized: Admin & Quality Checker access required",
+                "status"=> "error"
+            ];
+        }
+
+        $missing = $this->validateFields($data, ["keyword"]);
+        if (!empty($missing)) {
+            return [
+                "message"=> "Missing required fields: " . implode(", ", $missing),
+                "status"=> "error"
+            ];
+        }
+
+        $keyword = $data["keyword"];
+        if (trim($keyword) === "") {
+            // Return all failed records if keyword is empty or whitespace
+            $result = (new Chdm())->read_failed();
+        } else {
+            $result = Chdm::searchFailedChdm($keyword);
+        }
+        if ($result) {
+            return [
+                "status"=> "success",
+                "message"=> "CHDM records found",
+                "data"=> $result
+            ];
+        } else {
+            return [
+                "message"=> "No CHDM records found",
+                "status"=> "error"
+            ];
+        }
+    }
+   
 
     public function view_all_chdm($data) {
         $user = $this->getAuthenticatedUser();
@@ -457,7 +503,7 @@ public function assignForBranch($data) {
             isset($data['location']) ? $data['location'] : $existingChdm['location'],
             isset($data['description']) ? $data['description'] : $existingChdm['description'],
             isset($data['tested_date']) ? $data['tested_date'] : $existingChdm['tested_date'],
-            isset($data['branch_id']) ? $data['branch_id'] :$existingChdm['branch_id']
+            
         );
         
         $success = $chdm->update_all();

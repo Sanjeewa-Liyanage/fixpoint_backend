@@ -1,4 +1,3 @@
-    
 <?php
 require_once 'src/utils/JwtHandler.php';
 

@@ -127,17 +127,31 @@ class Chdm extends Model{
         $success = $stmt->execute();
         return $success;
     }
+    static public function searchFailedChdm($keyword) {
+        $conn = DatabaseConnection::getConnection();
+        $sql = "SELECT * FROM chdm WHERE state = 'failed' AND (serial_no LIKE :keyword)";
+        $stmt = $conn->prepare($sql);
+        $searchKeyword = '%' . $keyword . '%';
+        $stmt->bindParam(':keyword', $searchKeyword);
+        $stmt->execute();
+        $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        if (!$results) {
+            return false; // No results found
+        }
+        return $results;
+        
+    }
 
     public function update_all() {
         $conn = DatabaseConnection::getConnection();
-        $sql = "UPDATE chdm SET serial_no = :serial_no, state = :state, location = :location, description = :description, tested_date = :tested_date, branch_id = :branch_id WHERE id = :id";
+        $sql = "UPDATE chdm SET serial_no = :serial_no, state = :state, location = :location, description = :description, tested_date = :tested_date WHERE id = :id";
         $stmt = $conn->prepare($sql);
         $stmt->bindParam(':serial_no', $this->serial_no);
         $stmt->bindParam(':state', $this->state);
         $stmt->bindParam(':location', $this->location);
         $stmt->bindParam(':description', $this->description);
         $stmt->bindParam(':tested_date', $this->tested_date);
-        $stmt->bindParam(':branch_id', $this->branch_id);
         $stmt->bindParam(':id', $this->id);
         $success = $stmt->execute();
         return $success;

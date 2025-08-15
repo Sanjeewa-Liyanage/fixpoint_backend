@@ -1,0 +1,77 @@
+{
+  "endpoint": "update_completion_date",
+  "method": "POST",
+  "description": "Test for updating installation completion date and automatically setting status to success",
+  "headers": {
+    "Content-Type": "application/json",
+    "Authorization": "Bearer YOUR_JWT_TOKEN_HERE"
+  },
+  "test_cases": [
+    {
+      "name": "Valid completion date update",
+      "payload": {
+        "installation_id": 1,
+        "completion_date": "2025-08-04"
+      },
+      "expected_response": {
+        "status": "success",
+        "message": "Installation completion date updated and status set to success"
+      }
+    },
+    {
+      "name": "Valid completion date with timestamp",
+      "payload": {
+        "installation_id": 2,
+        "completion_date": "2025-08-04 14:30:00"
+      },
+      "expected_response": {
+        "status": "success",
+        "message": "Installation completion date updated and status set to success"
+      }
+    },
+    {
+      "name": "Missing installation_id",
+      "payload": {
+        "completion_date": "2025-08-04"
+      },
+      "expected_response": {
+        "status": "error",
+        "message": "Missing required fields: installation_id"
+      }
+    },
+    {
+      "name": "Missing completion_date",
+      "payload": {
+        "installation_id": 1
+      },
+      "expected_response": {
+        "status": "error",
+        "message": "Missing required fields: completion_date"
+      }
+    },
+    {
+      "name": "Invalid installation_id (non-existent)",
+      "payload": {
+        "installation_id": 99999,
+        "completion_date": "2025-08-04"
+      },
+      "expected_response": {
+        "status": "error",
+        "message": "Failed to update installation completion date and status"
+      }
+    }
+  ],
+  "curl_examples": [
+    {
+      "description": "Basic curl command for testing",
+      "command": "curl -X POST http://your-api-domain.com/api/installation/update_completion_date -H \"Content-Type: application/json\" -H \"Authorization: Bearer YOUR_JWT_TOKEN\" -d '{\"installation_id\": 1, \"completion_date\": \"2025-08-04\"}'"
+    }
+  ],
+  "notes": [
+    "Replace YOUR_JWT_TOKEN_HERE with actual JWT token",
+    "Replace installation_id with actual existing installation ID",
+    "Date format should be YYYY-MM-DD or YYYY-MM-DD HH:MM:SS",
+    "This endpoint requires admin or technician role",
+    "Success will update both completion_date and set status to 'success'"
+  ]
+}

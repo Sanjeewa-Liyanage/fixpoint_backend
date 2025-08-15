@@ -1,4 +1,3 @@
- 
 <?php
 class Qc_Reporting extends Model {
     public $qc_id;

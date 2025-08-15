@@ -58,10 +58,12 @@ class Teller_Scanner extends Model {
         return false;
     }
 
-     public static function readAll() {
-        // Implementation for reading all teller scanner records
+    public static function readAll() {
         $conn = DatabaseConnection::getConnection();
-        $sql = "SELECT * FROM teller_scanner ORDER BY scanner_id";
+        $sql = "SELECT ts.*, b.name AS branch_name
+                FROM teller_scanner ts
+                LEFT JOIN branch b ON ts.branch_id = b.branch_id
+                ORDER BY ts.scanner_id";
         $stmt = $conn->prepare($sql);
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -102,6 +104,20 @@ class Teller_Scanner extends Model {
             } else {
                 $results[] = ['scanner_id' => $this->scanner_id, 'status' => 'error'];
             }
+        }
+        return $results;
+    }
+    static public function searchTellerScanner($keyword) {
+        $conn = DatabaseConnection::getConnection();
+        $sql = "SELECT * FROM teller_scanner WHERE serial_number LIKE :keyword OR model LIKE :keyword";
+        $stmt = $conn->prepare($sql);
+        $searchKeyword = '%' . $keyword . '%';
+        $stmt->bindParam(':keyword', $searchKeyword);
+        $stmt->execute();
+        $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        if (!$results) {
+            return false; // No results found
         }
         return $results;
     }
@@ -146,6 +162,7 @@ class Teller_Scanner extends Model {
         $stmt->execute();
         return $stmt->rowCount() > 0;
     }
+
 
    
 
