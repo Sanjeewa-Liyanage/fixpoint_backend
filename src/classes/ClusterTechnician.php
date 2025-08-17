@@ -287,4 +287,77 @@ class ClusterTechnician extends Model {
         
         return false;
     }
+    
+    /**
+     * Remove a branch from clusters after service completion
+     * @param int $branchId The branch ID that was serviced
+     * @param int $userId The technician's user ID who completed the service
+     * @param int $quarter The quarter for which the service was completed
+     * @return array|bool Array with success status and cluster_id, or false on failure
+     */
+    public static function removeBranchFromCluster($branchId, $userId, $quarter) {
+        $conn = DatabaseConnection::getConnection();
+        
+        try {
+            $conn->beginTransaction();
+            
+            // Find clusters assigned to this technician
+            $sql = "SELECT cluster_id, cluster_branches FROM technician_cluster WHERE user_id = :user_id";
+            $stmt = $conn->prepare($sql);
+            $stmt->bindParam(':user_id', $userId);
+            $stmt->execute();
+            
+            $clusters = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $modifiedClusterId = null;
+            
+            foreach ($clusters as $cluster) {
+                $clusterBranches = json_decode($cluster['cluster_branches'], true);
+                if (!is_array($clusterBranches)) {
+                    continue;
+                }
+                
+                // Check if the branch exists in this cluster and remove it
+                $updatedBranches = array_filter($clusterBranches, function($branch) use ($branchId) {
+                    return isset($branch['branch_id']) && $branch['branch_id'] != $branchId;
+                });
+                
+                // If branches were removed, update the cluster
+                if (count($updatedBranches) !== count($clusterBranches)) {
+                    $modifiedClusterId = $cluster['cluster_id'];
+                    
+                    if (empty($updatedBranches)) {
+                        // If no branches left, delete the cluster
+                        $deleteSql = "DELETE FROM technician_cluster WHERE cluster_id = :cluster_id";
+                        $deleteStmt = $conn->prepare($deleteSql);
+                        $deleteStmt->bindParam(':cluster_id', $cluster['cluster_id']);
+                        $deleteStmt->execute();
+                        
+                        error_log("Deleted empty cluster {$cluster['cluster_id']} for user {$userId} after servicing branch {$branchId}");
+                    } else {
+                        // Update cluster with remaining branches
+                        $updateSql = "UPDATE technician_cluster SET cluster_branches = :cluster_branches WHERE cluster_id = :cluster_id";
+                        $updateStmt = $conn->prepare($updateSql);
+                        $updateStmt->bindParam(':cluster_id', $cluster['cluster_id']);
+                        $updatedBranchesJson = json_encode(array_values($updatedBranches));
+                        $updateStmt->bindParam(':cluster_branches', $updatedBranchesJson);
+                        $updateStmt->execute();
+                        
+                        error_log("Updated cluster {$cluster['cluster_id']} for user {$userId} - removed branch {$branchId}");
+                    }
+                    break; // Found and processed the cluster containing the branch
+                }
+            }
+            
+            $conn->commit();
+            return [
+                'success' => true,
+                'cluster_id' => $modifiedClusterId
+            ];
+            
+        } catch (Exception $e) {
+            $conn->rollBack();
+            error_log("Error removing branch from cluster: " . $e->getMessage());
+            return false;
+        }
+    }
 }

@@ -97,9 +97,31 @@ public function create_service_report($data) {
         );
     $success = $serviceReport->create();
     if($success) {
+        // Remove the serviced branch from technician clusters
+        $clusterId = null;
+        if (class_exists('ClusterTechnician')) {
+            $branchRemovalResult = ClusterTechnician::removeBranchFromCluster(
+                $data['branch_id'], 
+                $user_id, 
+                $quarter
+            );
+            
+            if ($branchRemovalResult && is_array($branchRemovalResult)) {
+                $clusterId = $branchRemovalResult['cluster_id'];
+                error_log("Successfully removed branch {$data['branch_id']} from cluster {$clusterId} for user {$user_id} in quarter {$quarter}");
+            } else {
+                error_log("Failed to remove branch {$data['branch_id']} from clusters for user {$user_id} in quarter {$quarter}");
+            }
+        }
+        
+        $message = 'Service report created successfully and branch removed from cluster assignments';
+        if ($clusterId) {
+            $message .= " (Cluster ID: {$clusterId})";
+        }
+        
         return [
             'status' => 'success',
-            'message' => 'Service report created successfully  with Data: ' . json_encode($data)
+            'message' => $message
         ];
     } else {
         return [
