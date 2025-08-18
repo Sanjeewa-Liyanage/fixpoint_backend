@@ -5,13 +5,15 @@ class ClusterTechnician extends Model {
     public $user_id;
     public $routine_id;
     public $date;
+    public $quarter;
     public $cluster_branches;
 
-    public function __construct($cluster_id = null, $user_id = null, $routine_id = null, $date = null, $cluster_branches = []) {
+    public function __construct($cluster_id = null, $user_id = null, $routine_id = null, $date = null, $quarter = null, $cluster_branches = []) {
         $this->cluster_id = $cluster_id;
         $this->user_id = $user_id;
         $this->routine_id = $routine_id;
         $this->date = $date;
+        $this->quarter = $quarter;
         $this->cluster_branches = $cluster_branches;
     }
 
@@ -21,13 +23,14 @@ class ClusterTechnician extends Model {
      */
     public function create() {
         $conn = DatabaseConnection::getConnection();
-        $sql = "INSERT INTO technician_cluster (user_id, routine_id, date, cluster_branches) 
-                VALUES (:user_id, :routine_id, :date, :cluster_branches)";
+        $sql = "INSERT INTO technician_cluster (user_id, routine_id, date, quarter, cluster_branches) 
+                VALUES (:user_id, :routine_id, :date, :quarter, :cluster_branches)";
         
         $stmt = $conn->prepare($sql);
         $stmt->bindParam(':user_id', $this->user_id);
         $stmt->bindParam(':routine_id', $this->routine_id);
         $stmt->bindParam(':date', $this->date);
+        $stmt->bindParam(':quarter', $this->quarter);
         
         // Convert cluster_branches array to JSON for storage
         $branchesJson = json_encode($this->cluster_branches);
@@ -61,6 +64,7 @@ class ClusterTechnician extends Model {
             $this->user_id = $result['user_id'];
             $this->routine_id = $result['routine_id'];
             $this->date = $result['date'];
+            $this->quarter = $result['quarter'];
             $this->cluster_branches = json_decode($result['cluster_branches'], true);
             return true;
         }
@@ -78,6 +82,7 @@ class ClusterTechnician extends Model {
                 SET user_id = :user_id, 
                     routine_id = :routine_id, 
                     date = :date, 
+                    quarter = :quarter,
                     cluster_branches = :cluster_branches 
                 WHERE cluster_id = :cluster_id";
         
@@ -86,6 +91,7 @@ class ClusterTechnician extends Model {
         $stmt->bindParam(':user_id', $this->user_id);
         $stmt->bindParam(':routine_id', $this->routine_id);
         $stmt->bindParam(':date', $this->date);
+        $stmt->bindParam(':quarter', $this->quarter);
         
         // Convert cluster_branches array to JSON for storage
         $branchesJson = json_encode($this->cluster_branches);
@@ -125,6 +131,20 @@ class ClusterTechnician extends Model {
             // Begin transaction
             $conn->beginTransaction();
             
+            // Get the quarter from the routine
+            $routineSql = "SELECT quarter FROM routines WHERE id = :routine_id";
+            $routineStmt = $conn->prepare($routineSql);
+            $routineStmt->bindParam(':routine_id', $routineId);
+            $routineStmt->execute();
+            $routineData = $routineStmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$routineData) {
+                $conn->rollBack();
+                return false;
+            }
+            
+            $quarter = $routineData['quarter'];
+            
             // Delete any existing clusters for this routine
             $deleteSql = "DELETE FROM technician_cluster WHERE routine_id = :routine_id";
             $deleteStmt = $conn->prepare($deleteSql);
@@ -140,6 +160,7 @@ class ClusterTechnician extends Model {
                         null, // user_id is null initially until assigned to a technician
                         $routineId,
                         $currentDate,
+                        $quarter,
                         $clusterInfo['branches']
                     );
                     
@@ -187,6 +208,7 @@ class ClusterTechnician extends Model {
                     'user_id' => $row['user_id'],
                     'routine_id' => $row['routine_id'],
                     'date' => $row['date'],
+                    'quarter' => $row['quarter'],
                     'cluster_branches' => json_decode($row['cluster_branches'], true)
                 ];
             }
@@ -279,6 +301,7 @@ class ClusterTechnician extends Model {
                     'user_id' => $row['user_id'],
                     'routine_id' => $row['routine_id'],
                     'date' => $row['date'],
+                    'quarter' => $row['quarter'],
                     'cluster_branches' => json_decode($row['cluster_branches'], true)
                 ];
             }

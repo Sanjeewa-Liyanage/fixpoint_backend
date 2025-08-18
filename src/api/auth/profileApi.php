@@ -1,5 +1,10 @@
 <?php 
-require_once 'src/utils/JwtHandler.php';
+require_once 'src/utils/ApiResourceBase.php';
+require_once 'src/utils/imports.php';
+require_once 'src/utils/defaultpassword.php'; // Explicit include for DefaultPasswordGenerator
+
+use Fixpoint\Utils\AzureEmailService;
+
 class ProfileApi extends ApiResourceBase{
      public function __construct()
     {
@@ -29,22 +34,45 @@ class ProfileApi extends ApiResourceBase{
                 'status' => 'error'
             ];
         }
-        // Only require user fields, not role_id
-        $missing = $this->validateFields($data, ['username', 'email', 'password', 'phone', 'profile_picture']);
+        // Remove password from required fields as we'll generate it
+        $missing = $this->validateFields($data, ['username', 'email', 'phone', 'profile_picture']);
         if (!empty($missing)) {
             return [
                 'message' => 'Invalid Request. Missing fields: ' . implode(', ', $missing),
                 'status' => 'error'
             ];
         }
-        // Do not set role_id at creation
-        $user = new User(null, $data['username'], $data['email'], $data['password'], $data['phone'], $data['profile_picture']);
-        $success = $user->create();
+        
+        // Generate a default password
+        $defaultPassword = DefaultPasswordGenerator::generate(12);
+        
+        // Create user with generated password
+        $newUser = new User(null, $data['username'], $data['email'], $defaultPassword, $data['phone'], $data['profile_picture']);
+        $success = $newUser->create();
+        
         if ($success) {
-            return [
-                'message' => 'User created successfully',
-                'status' => 'success'
-            ];
+            // Configure Azure Email Service
+            $connectionString = "endpoint=https://fixpoit-mailler.unitedstates.communication.azure.com/;accesskey=DlCOIqLviNq3RKnhC10g61vOZ46nN3qtE4a3DR5IRke2vLzHJ6jnJQQJ99BHACULyCpQCLZ2AAAAAZCSSthx";
+            $senderAddress = "DoNotReply@1150820c-c077-40e5-bf54-90e4e6adcb7e.azurecomm.net";
+            AzureEmailService::configure($connectionString, $senderAddress);
+            
+            // Send default password via email
+            try {
+                $emailResult = AzureEmailService::sendDefaultPasswordEmail($data['email'], $defaultPassword);
+                
+                return [
+                    'message' => 'User created successfully and default password sent to email',
+                    'status' => 'success',
+                    'email_sent' => true
+                ];
+            } catch (Exception $e) {
+                // User was created but email failed - still return success
+                return [
+                    'message' => 'User created successfully but failed to send email: ' . $e->getMessage(),
+                    'status' => 'success',
+                    'email_sent' => false
+                ];
+            }
         } else {
             return [
                 'message' => 'Failed to create user',

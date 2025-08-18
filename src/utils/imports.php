@@ -64,5 +64,6 @@ require_once 'src/api/notification/notificationApi.php';
 require_once 'src/api/chdm/chdmApi.php';
 require_once 'src/utils/router.php';
 require_once 'src/utils/JwtHandler.php';
+require_once 'src/utils/defaultpassword.php';
 
 require_once 'vendor/autoload.php';

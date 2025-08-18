@@ -129,21 +129,46 @@ HTML;
     {
         $year = date('Y');
         $pwEsc = htmlspecialchars($password, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        
+        // Split password characters for individual styling
+        $passwordChars = str_split($pwEsc);
+        $styledPassword = '';
+        foreach ($passwordChars as $char) {
+            $styledPassword .= '<span style="color: #d63384; font-weight: bold; margin: 0 4px;">' . $char . '</span>';
+        }
+        
         return <<<HTML
-<div style="font-family: Arial, sans-serif; background: #f4f4f7; padding: 40px 0;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 480px; margin: auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f0f0f0; padding: 40px 20px;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 500px; margin: auto; background: #fff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
+    <!-- Header with logo and branding -->
     <tr>
-      <td style="padding: 32px 32px 16px 32px; text-align: center;">
-        <h2 style="color: #333; margin-bottom: 8px;">Your Default Password</h2>
-        <p style="color: #555; font-size: 16px; margin-bottom: 24px;">Below is your default password. Please change it after your first login for security purposes.</p>
-        <div style="display: inline-block; padding: 16px 32px; background: #f0f4ff; border-radius: 6px; margin-bottom: 24px;">
-          <span style="font-size: 32px; letter-spacing: 2px; color: #2d5be3; font-weight: bold;">{$pwEsc}</span>
+      <td style="background: #cec31eff; padding: 24px; text-align: center;">
+        <div style="display: inline-flex; align-items: center; justify-content: center; gap: 12px;">
+          <img src="https://sahqlmlmflamaghbwkin.supabase.co/storage/v1/object/public/images/faviccon.ico" alt="Fixpoint Logo" style="width: 40px; height: 40px; vertical-align: middle; padding-right: 8px;" />
+          <h1 style="color: #333333; margin: 0; font-size: 24px; font-weight: 600;">FixPoint<sup style="font-size: 14px;">®</sup></h1>
         </div>
-        <p style="color: #888; font-size: 14px; margin-top: 24px;">If you did not request this, please contact support.</p>
       </td>
     </tr>
+    <!-- Main content -->
     <tr>
-      <td style="padding: 0 32px 32px 32px; text-align: center; color: #aaa; font-size: 12px;">&copy; {$year} Fixpoint. All rights reserved.</td>
+      <td style="padding: 40px 40px 20px 40px; text-align: center;">
+        <h2 style="color: #333; margin: 0 0 24px 0; font-size: 28px; font-weight: 400;">Your Default Password</h2>
+        <p style="color: #666; font-size: 16px; margin: 0 0 8px 0; text-align: left;">Welcome to FixPoint!</p>
+        <p style="color: #666; font-size: 14px; margin: 0 0 32px 0; line-height: 1.5;">Below is your default password. Please <strong>change it after your first login</strong> for security purposes.</p>
+        
+        <!-- Password Display -->
+        <div style="margin: 32px 0; font-size: 24px; font-weight: bold; letter-spacing: 4px; line-height: 1;">
+          {$styledPassword}
+        </div>
+        
+        <p style="color: #999; font-size: 12px; margin-top: 40px;">If you did not request this account, please contact support.</p>
+      </td>
+    </tr>
+    <!-- Footer -->
+    <tr>
+      <td style="padding: 20px 40px 30px 40px; text-align: center; color: #aaa; font-size: 11px; border-top: 1px solid #f0f0f0;">
+        &copy; {$year} Fixpoint Concepts. All rights reserved.
+      </td>
     </tr>
   </table>
 </div>
