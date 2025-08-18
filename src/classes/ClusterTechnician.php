@@ -312,7 +312,7 @@ class ClusterTechnician extends Model {
     }
     
     /**
-     * Remove a branch from clusters after service completion
+     * Remove a branch from clusters after service completion and add to done_clusters table
      * @param int $branchId The branch ID that was serviced
      * @param int $userId The technician's user ID who completed the service
      * @param int $quarter The quarter for which the service was completed
@@ -324,19 +324,50 @@ class ClusterTechnician extends Model {
         try {
             $conn->beginTransaction();
             
-            // Find clusters assigned to this technician
-            $sql = "SELECT cluster_id, cluster_branches FROM technician_cluster WHERE user_id = :user_id";
-            $stmt = $conn->prepare($sql);
-            $stmt->bindParam(':user_id', $userId);
-            $stmt->execute();
+            // Debug logging
+            error_log("removeBranchFromCluster: Looking for branch {$branchId}, user {$userId}, quarter {$quarter}");
             
+            // Find clusters assigned to this technician for the specific quarter
+            if ($quarter !== null) {
+                $sql = "SELECT cluster_id, cluster_branches, quarter FROM technician_cluster WHERE user_id = :user_id AND quarter = :quarter";
+                $stmt = $conn->prepare($sql);
+                $stmt->bindParam(':user_id', $userId);
+                $stmt->bindParam(':quarter', $quarter);
+            } else {
+                $sql = "SELECT cluster_id, cluster_branches, quarter FROM technician_cluster WHERE user_id = :user_id AND quarter IS NULL";
+                $stmt = $conn->prepare($sql);
+                $stmt->bindParam(':user_id', $userId);
+            }
+            
+            $stmt->execute();
             $clusters = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            error_log("Found " . count($clusters) . " clusters for user {$userId} with quarter {$quarter}");
+            
             $modifiedClusterId = null;
+            $servicedBranch = null;
             
             foreach ($clusters as $cluster) {
+                error_log("Checking cluster {$cluster['cluster_id']} with quarter {$cluster['quarter']}");
+                
                 $clusterBranches = json_decode($cluster['cluster_branches'], true);
                 if (!is_array($clusterBranches)) {
+                    error_log("Invalid cluster_branches data for cluster {$cluster['cluster_id']}");
                     continue;
+                }
+                
+                // Debug: Log all branches in this cluster
+                $branchIds = array_map(function($branch) {
+                    return isset($branch['branch_id']) ? $branch['branch_id'] : 'unknown';
+                }, $clusterBranches);
+                error_log("Cluster {$cluster['cluster_id']} contains branches: " . implode(', ', $branchIds));
+                
+                // Find the serviced branch and extract its data
+                foreach ($clusterBranches as $branch) {
+                    if (isset($branch['branch_id']) && $branch['branch_id'] == $branchId) {
+                        $servicedBranch = $branch;
+                        break;
+                    }
                 }
                 
                 // Check if the branch exists in this cluster and remove it
@@ -347,6 +378,12 @@ class ClusterTechnician extends Model {
                 // If branches were removed, update the cluster
                 if (count($updatedBranches) !== count($clusterBranches)) {
                     $modifiedClusterId = $cluster['cluster_id'];
+                    error_log("Found and removing branch {$branchId} from cluster {$modifiedClusterId}");
+                    
+                    // Add the completed branch to done_clusters table
+                    if ($servicedBranch) {
+                        self::addToDoneClusters($modifiedClusterId, $userId, $servicedBranch);
+                    }
                     
                     if (empty($updatedBranches)) {
                         // If no branches left, delete the cluster
@@ -355,7 +392,7 @@ class ClusterTechnician extends Model {
                         $deleteStmt->bindParam(':cluster_id', $cluster['cluster_id']);
                         $deleteStmt->execute();
                         
-                        error_log("Deleted empty cluster {$cluster['cluster_id']} for user {$userId} after servicing branch {$branchId}");
+                        error_log("Deleted empty cluster {$cluster['cluster_id']} for user {$userId} after servicing branch {$branchId} in quarter {$quarter}");
                     } else {
                         // Update cluster with remaining branches
                         $updateSql = "UPDATE technician_cluster SET cluster_branches = :cluster_branches WHERE cluster_id = :cluster_id";
@@ -365,10 +402,16 @@ class ClusterTechnician extends Model {
                         $updateStmt->bindParam(':cluster_branches', $updatedBranchesJson);
                         $updateStmt->execute();
                         
-                        error_log("Updated cluster {$cluster['cluster_id']} for user {$userId} - removed branch {$branchId}");
+                        error_log("Updated cluster {$cluster['cluster_id']} for user {$userId} - removed branch {$branchId} in quarter {$quarter}");
                     }
                     break; // Found and processed the cluster containing the branch
+                } else {
+                    error_log("Branch {$branchId} not found in cluster {$cluster['cluster_id']}");
                 }
+            }
+            
+            if ($modifiedClusterId === null) {
+                error_log("Branch {$branchId} not found in any cluster for user {$userId} with quarter {$quarter}");
             }
             
             $conn->commit();
@@ -380,6 +423,137 @@ class ClusterTechnician extends Model {
         } catch (Exception $e) {
             $conn->rollBack();
             error_log("Error removing branch from cluster: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Add a completed branch to the done_clusters table
+     * @param int $clusterId The cluster ID
+     * @param int $userId The user ID
+     * @param array $branchData The branch data to add
+     * @return bool Success status
+     */
+    private static function addToDoneClusters($clusterId, $userId, $branchData) {
+        $conn = DatabaseConnection::getConnection();
+        
+        try {
+            // Check if there's already a record for this cluster and user
+            $checkSql = "SELECT done_id, done_branches FROM done_clusters WHERE cluster_id = :cluster_id AND user_id = :user_id";
+            $checkStmt = $conn->prepare($checkSql);
+            $checkStmt->bindParam(':cluster_id', $clusterId);
+            $checkStmt->bindParam(':user_id', $userId);
+            $checkStmt->execute();
+            
+            $existingRecord = $checkStmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($existingRecord) {
+                // Update existing record by adding the new branch to done_branches array
+                $doneBranches = json_decode($existingRecord['done_branches'], true);
+                if (!is_array($doneBranches)) {
+                    $doneBranches = [];
+                }
+                
+                // Add completion timestamp to branch data
+                $branchData['completed_at'] = date('Y-m-d H:i:s');
+                $doneBranches[] = $branchData;
+                
+                $updateSql = "UPDATE done_clusters SET done_branches = :done_branches WHERE done_id = :done_id";
+                $updateStmt = $conn->prepare($updateSql);
+                $updateStmt->bindParam(':done_id', $existingRecord['done_id']);
+                $doneBranchesJson = json_encode($doneBranches);
+                $updateStmt->bindParam(':done_branches', $doneBranchesJson);
+                $result = $updateStmt->execute();
+                
+                error_log("Updated done_clusters record for cluster {$clusterId}, user {$userId} - added branch {$branchData['branch_id']}");
+                
+            } else {
+                // Create new record
+                $branchData['completed_at'] = date('Y-m-d H:i:s');
+                $doneBranches = [$branchData];
+                
+                $insertSql = "INSERT INTO done_clusters (cluster_id, user_id, done_branches) VALUES (:cluster_id, :user_id, :done_branches)";
+                $insertStmt = $conn->prepare($insertSql);
+                $insertStmt->bindParam(':cluster_id', $clusterId);
+                $insertStmt->bindParam(':user_id', $userId);
+                $doneBranchesJson = json_encode($doneBranches);
+                $insertStmt->bindParam(':done_branches', $doneBranchesJson);
+                $result = $insertStmt->execute();
+                
+                error_log("Created new done_clusters record for cluster {$clusterId}, user {$userId} - added branch {$branchData['branch_id']}");
+            }
+            
+            return $result;
+            
+        } catch (Exception $e) {
+            error_log("Error adding to done_clusters: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Get completed branches for a specific cluster and user
+     * @param int $clusterId The cluster ID
+     * @param int $userId The user ID
+     * @return array|bool Array of completed branches or false on failure
+     */
+    public static function getDoneBranches($clusterId, $userId) {
+        $conn = DatabaseConnection::getConnection();
+        
+        try {
+            $sql = "SELECT done_branches FROM done_clusters WHERE cluster_id = :cluster_id AND user_id = :user_id";
+            $stmt = $conn->prepare($sql);
+            $stmt->bindParam(':cluster_id', $clusterId);
+            $stmt->bindParam(':user_id', $userId);
+            $stmt->execute();
+            
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($result) {
+                return json_decode($result['done_branches'], true);
+            }
+            
+            return [];
+            
+        } catch (Exception $e) {
+            error_log("Error getting done branches: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Get all completed branches for a user across all clusters
+     * @param int $userId The user ID
+     * @return array|bool Array of completed clusters or false on failure
+     */
+    public static function getAllDoneBranchesByUser($userId) {
+        $conn = DatabaseConnection::getConnection();
+        
+        try {
+            $sql = "SELECT cluster_id, done_branches FROM done_clusters WHERE user_id = :user_id ORDER BY done_id DESC";
+            $stmt = $conn->prepare($sql);
+            $stmt->bindParam(':user_id', $userId);
+            $stmt->execute();
+            
+            $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            if ($results) {
+                $doneClusters = [];
+                foreach ($results as $row) {
+                    $doneBranches = json_decode($row['done_branches'], true);
+                    $doneClusters[] = [
+                        'cluster_id' => $row['cluster_id'],
+                        'done_branches' => $doneBranches,
+                        'total_completed' => is_array($doneBranches) ? count($doneBranches) : 0
+                    ];
+                }
+                return $doneClusters;
+            }
+            
+            return [];
+            
+        } catch (Exception $e) {
+            error_log("Error getting all done branches: " . $e->getMessage());
             return false;
         }
     }

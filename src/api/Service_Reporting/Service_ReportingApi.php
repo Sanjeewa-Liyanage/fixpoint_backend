@@ -6,7 +6,9 @@ public function __construct() {
         "view_service_reports" => ["technician", "admin"],
         "update_service_reports" => ["technician", "admin"],
         "delete_service_report" => ["technician", "admin"],
-        "view_all_service_reports" => ["technician", "admin"]
+        "view_all_service_reports" => ["technician", "admin"],
+        "get_technician_clusters" => ["technician", "admin"],
+        "get_done_branches" => ["technician", "admin"]
     ]);
 }
 
@@ -97,9 +99,22 @@ public function create_service_report($data) {
         );
     $success = $serviceReport->create();
     if($success) {
-        // Remove the serviced branch from technician clusters
+        // Debug logging
+        error_log("Service report created successfully. Now identifying cluster for branch {$data['branch_id']}, user {$user_id}, quarter {$quarter}");
+        
+        // Identify which cluster the branch belongs to before removing it
+        $clusterInfo = $this->getClusterForBranch($data['branch_id'], $user_id, $quarter);
         $clusterId = null;
+        
+        if ($clusterInfo) {
+            $clusterId = $clusterInfo['cluster_id'];
+            error_log("Identified cluster {$clusterId} containing branch {$data['branch_id']} for user {$user_id} in quarter {$quarter}");
+        } else {
+            error_log("No cluster found containing branch {$data['branch_id']} for user {$user_id} in quarter {$quarter}");
+        }
+        
         if (class_exists('ClusterTechnician')) {
+            // Remove the serviced branch from technician clusters
             $branchRemovalResult = ClusterTechnician::removeBranchFromCluster(
                 $data['branch_id'], 
                 $user_id, 
@@ -107,22 +122,29 @@ public function create_service_report($data) {
             );
             
             if ($branchRemovalResult && is_array($branchRemovalResult)) {
-                $clusterId = $branchRemovalResult['cluster_id'];
+                if (!$clusterId) {
+                    $clusterId = $branchRemovalResult['cluster_id'];
+                }
                 error_log("Successfully removed branch {$data['branch_id']} from cluster {$clusterId} for user {$user_id} in quarter {$quarter}");
             } else {
                 error_log("Failed to remove branch {$data['branch_id']} from clusters for user {$user_id} in quarter {$quarter}");
             }
         }
         
-        $message = 'Service report created successfully and branch removed from cluster assignments';
-        if ($clusterId) {
+        $message = 'Service report created successfully, branch removed from cluster assignments and added to completed branches';
+        $responseData = ['status' => 'success', 'message' => $message];
+        
+        // Include cluster information in the response if available
+        if ($clusterInfo) {
+            $message .= " (Cluster ID: {$clusterInfo['cluster_id']}, Quarter: Q{$clusterInfo['quarter']})";
+            $responseData['message'] = $message;
+            $responseData['cluster_info'] = $clusterInfo;
+        } elseif ($clusterId) {
             $message .= " (Cluster ID: {$clusterId})";
+            $responseData['message'] = $message;
         }
         
-        return [
-            'status' => 'success',
-            'message' => $message
-        ];
+        return $responseData;
     } else {
         return [
             'status' => 'error',
@@ -273,6 +295,234 @@ public function update_service_reports($data) {
             return [
                 "status" => "error",
                 "message" => "A database error occurred."
+            ];
+        }
+    }
+
+    /**
+     * Get cluster information for a specific branch and technician
+     * @param int $branchId The branch ID
+     * @param int $userId The technician's user ID
+     * @param int $quarter The quarter (required for proper cluster identification)
+     * @return array|null Cluster information or null if not found
+     */
+    private function getClusterForBranch($branchId, $userId, $quarter = null) {
+        if (!class_exists('ClusterTechnician')) {
+            return null;
+        }
+        
+        error_log("getClusterForBranch: Looking for branch {$branchId}, user {$userId}, quarter {$quarter}");
+        
+        $technicianClusters = ClusterTechnician::getClustersByTechnician($userId);
+        
+        if (!$technicianClusters) {
+            error_log("No clusters found for technician {$userId}");
+            return null;
+        }
+        
+        error_log("Found " . count($technicianClusters) . " total clusters for technician {$userId}");
+        
+        foreach ($technicianClusters as $cluster) {
+            error_log("Checking cluster {$cluster['cluster_id']} with quarter {$cluster['quarter']} (looking for quarter {$quarter})");
+            
+            // Match by quarter - this is crucial for proper cluster identification
+            if ($quarter !== null && $cluster['quarter'] != $quarter) {
+                error_log("Skipping cluster {$cluster['cluster_id']} - quarter mismatch ({$cluster['quarter']} != {$quarter})");
+                continue;
+            }
+            
+            $clusterBranches = $cluster['cluster_branches'];
+            if (is_array($clusterBranches)) {
+                $branchIds = array_map(function($branch) {
+                    return isset($branch['branch_id']) ? $branch['branch_id'] : 'unknown';
+                }, $clusterBranches);
+                error_log("Cluster {$cluster['cluster_id']} contains branches: " . implode(', ', $branchIds));
+                
+                foreach ($clusterBranches as $branch) {
+                    if (isset($branch['branch_id']) && $branch['branch_id'] == $branchId) {
+                        error_log("Found branch {$branchId} in cluster {$cluster['cluster_id']} with quarter {$cluster['quarter']}");
+                        return [
+                            'cluster_id' => $cluster['cluster_id'],
+                            'quarter' => $cluster['quarter'],
+                            'routine_id' => $cluster['routine_id'],
+                            'date' => $cluster['date'],
+                            'total_branches' => count($clusterBranches),
+                            'cluster_branches' => $clusterBranches,
+                            'target_branch_id' => $branchId
+                        ];
+                    }
+                }
+            } else {
+                error_log("Invalid cluster_branches data for cluster {$cluster['cluster_id']}");
+            }
+        }
+        
+        error_log("Branch {$branchId} not found in any cluster for user {$userId} with quarter {$quarter}");
+        return null;
+    }
+
+    /**
+     * Get all clusters for a technician with detailed information
+     * @param array $data Should contain user_id and optionally quarter
+     * @return array API response
+     */
+    public function get_technician_clusters($data) {
+        $user = $this->getAuthenticatedUser();
+        if(!$user) {
+            return [
+                "status" => "error",
+                "message" => "Invalid Authentication Token"
+            ];
+        }
+        
+        $roleName = isset($user['role_name'])? $user['role_name'] : (isset($user['role']['role_name']) ? $user['role']['role_name'] : null);
+        if(!$this->checkRoles($roleName, 'view_service_reports')) {
+            return [
+                'status' => 'error',
+                'message' => 'You do not have permission to view cluster information'
+            ];
+        }
+        
+        // Use authenticated user's ID if not provided
+        $userId = isset($data['user_id']) ? $data['user_id'] : $user['user_id'];
+        $quarter = isset($data['quarter']) ? $data['quarter'] : null;
+        
+        if (!class_exists('ClusterTechnician')) {
+            return [
+                'status' => 'error',
+                'message' => 'ClusterTechnician class not available'
+            ];
+        }
+        
+        $clusters = ClusterTechnician::getClustersByTechnician($userId);
+        
+        if (!$clusters) {
+            return [
+                'status' => 'success',
+                'message' => 'No clusters found for this technician',
+                'data' => []
+            ];
+        }
+        
+        // Filter by quarter if specified
+        if ($quarter !== null) {
+            $clusters = array_filter($clusters, function($cluster) use ($quarter) {
+                return $cluster['quarter'] == $quarter;
+            });
+        }
+        
+        // Add additional information to each cluster
+        $enhancedClusters = array_map(function($cluster) {
+            $cluster['total_branches'] = is_array($cluster['cluster_branches']) ? count($cluster['cluster_branches']) : 0;
+            $cluster['quarter_display'] = 'Q' . $cluster['quarter'];
+            return $cluster;
+        }, $clusters);
+        
+        return [
+            'status' => 'success',
+            'message' => 'Clusters retrieved successfully',
+            'data' => array_values($enhancedClusters)
+        ];
+    }
+
+    /**
+     * Get completed branches for a technician
+     * @param array $data Should contain user_id (optional) and cluster_id (optional)
+     * @return array API response
+     */
+    public function get_done_branches($data) {
+        $user = $this->getAuthenticatedUser();
+        if(!$user) {
+            return [
+                "status" => "error",
+                "message" => "Invalid Authentication Token"
+            ];
+        }
+        
+        $roleName = isset($user['role_name'])? $user['role_name'] : (isset($user['role']['role_name']) ? $user['role']['role_name'] : null);
+        if(!$this->checkRoles($roleName, 'get_done_branches')) {
+            return [
+                'status' => 'error',
+                'message' => 'You do not have permission to view completed branches'
+            ];
+        }
+        
+        // Use authenticated user's ID if not provided
+        $userId = null;
+        if (isset($data['user_id'])) {
+            $userId = $data['user_id'];
+        } elseif (isset($user['user_id'])) {
+            $userId = $user['user_id'];
+        } elseif (isset($user['id'])) {
+            $userId = $user['id'];
+        } elseif (isset($user['uid'])) {
+            $userId = $user['uid'];
+        }
+        
+        if (!$userId) {
+            return [
+                'status' => 'error',
+                'message' => 'User ID not found in authentication token'
+            ];
+        }
+        
+        $clusterId = isset($data['cluster_id']) ? $data['cluster_id'] : null;
+        
+        if (!class_exists('ClusterTechnician')) {
+            return [
+                'status' => 'error',
+                'message' => 'ClusterTechnician class not available'
+            ];
+        }
+        
+        if ($clusterId) {
+            // Get done branches for specific cluster
+            $doneBranches = ClusterTechnician::getDoneBranches($clusterId, $userId);
+            
+            if ($doneBranches === false) {
+                return [
+                    'status' => 'error',
+                    'message' => 'Database error occurred while retrieving completed branches'
+                ];
+            }
+            
+            return [
+                'status' => 'success',
+                'message' => 'Completed branches retrieved successfully',
+                'data' => [
+                    'cluster_id' => $clusterId,
+                    'user_id' => $userId,
+                    'done_branches' => $doneBranches,
+                    'total_completed' => count($doneBranches)
+                ]
+            ];
+        } else {
+            // Get all done branches for user across all clusters
+            $allDoneBranches = ClusterTechnician::getAllDoneBranchesByUser($userId);
+            
+            if ($allDoneBranches === false) {
+                return [
+                    'status' => 'error',
+                    'message' => 'Database error occurred while retrieving completed branches'
+                ];
+            }
+            
+            // Calculate totals
+            $totalClusters = count($allDoneBranches);
+            $totalBranches = 0;
+            foreach ($allDoneBranches as $cluster) {
+                $totalBranches += $cluster['total_completed'];
+            }
+            
+            return [
+                'status' => 'success',
+                'message' => 'All completed branches retrieved successfully',
+                'data' => [
+                    'user_id' => $userId,
+                    'total_clusters_with_completions' => $totalClusters,
+                    'total_branches_completed' => $totalBranches,
+                    'clusters' => $allDoneBranches
+                ]
             ];
         }
     }
