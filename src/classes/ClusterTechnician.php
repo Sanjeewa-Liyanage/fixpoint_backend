@@ -495,13 +495,16 @@ class ClusterTechnician extends Model {
      * Get completed branches for a specific cluster and user
      * @param int $clusterId The cluster ID
      * @param int $userId The user ID
-     * @return array|bool Array of completed branches or false on failure
+     * @return array|bool Array of completed branches with technician info or false on failure
      */
     public static function getDoneBranches($clusterId, $userId) {
         $conn = DatabaseConnection::getConnection();
         
         try {
-            $sql = "SELECT done_branches FROM done_clusters WHERE cluster_id = :cluster_id AND user_id = :user_id";
+            $sql = "SELECT dc.done_branches, u.username as technician_name, u.email as technician_email 
+                    FROM done_clusters dc 
+                    LEFT JOIN users u ON dc.user_id = u.user_id 
+                    WHERE dc.cluster_id = :cluster_id AND dc.user_id = :user_id";
             $stmt = $conn->prepare($sql);
             $stmt->bindParam(':cluster_id', $clusterId);
             $stmt->bindParam(':user_id', $userId);
@@ -510,7 +513,12 @@ class ClusterTechnician extends Model {
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
             
             if ($result) {
-                return json_decode($result['done_branches'], true);
+                $doneBranches = json_decode($result['done_branches'], true);
+                return [
+                    'done_branches' => $doneBranches,
+                    'technician_name' => $result['technician_name'],
+                    'technician_email' => $result['technician_email']
+                ];
             }
             
             return [];
@@ -524,13 +532,17 @@ class ClusterTechnician extends Model {
     /**
      * Get all completed branches for a user across all clusters
      * @param int $userId The user ID
-     * @return array|bool Array of completed clusters or false on failure
+     * @return array|bool Array of completed clusters with technician info or false on failure
      */
     public static function getAllDoneBranchesByUser($userId) {
         $conn = DatabaseConnection::getConnection();
         
         try {
-            $sql = "SELECT cluster_id, done_branches FROM done_clusters WHERE user_id = :user_id ORDER BY done_id DESC";
+            $sql = "SELECT dc.cluster_id, dc.done_branches, u.username as technician_name, u.email as technician_email 
+                    FROM done_clusters dc 
+                    LEFT JOIN users u ON dc.user_id = u.user_id 
+                    WHERE dc.user_id = :user_id 
+                    ORDER BY dc.done_id DESC";
             $stmt = $conn->prepare($sql);
             $stmt->bindParam(':user_id', $userId);
             $stmt->execute();
@@ -539,15 +551,30 @@ class ClusterTechnician extends Model {
             
             if ($results) {
                 $doneClusters = [];
+                $technicianName = null;
+                $technicianEmail = null;
+                
                 foreach ($results as $row) {
                     $doneBranches = json_decode($row['done_branches'], true);
+                    
+                    // Get technician info from first record (should be same for all)
+                    if (!$technicianName) {
+                        $technicianName = $row['technician_name'];
+                        $technicianEmail = $row['technician_email'];
+                    }
+                    
                     $doneClusters[] = [
                         'cluster_id' => $row['cluster_id'],
                         'done_branches' => $doneBranches,
                         'total_completed' => is_array($doneBranches) ? count($doneBranches) : 0
                     ];
                 }
-                return $doneClusters;
+                
+                return [
+                    'technician_name' => $technicianName,
+                    'technician_email' => $technicianEmail,
+                    'clusters' => $doneClusters
+                ];
             }
             
             return [];

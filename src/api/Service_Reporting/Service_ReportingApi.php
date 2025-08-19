@@ -477,12 +477,25 @@ public function update_service_reports($data) {
         
         if ($clusterId) {
             // Get done branches for specific cluster
-            $doneBranches = ClusterTechnician::getDoneBranches($clusterId, $userId);
+            $doneBranchesResult = ClusterTechnician::getDoneBranches($clusterId, $userId);
             
-            if ($doneBranches === false) {
+            if ($doneBranchesResult === false) {
                 return [
                     'status' => 'error',
                     'message' => 'Database error occurred while retrieving completed branches'
+                ];
+            }
+            
+            if (empty($doneBranchesResult)) {
+                return [
+                    'status' => 'success',
+                    'message' => 'No completed branches found for this cluster',
+                    'data' => [
+                        'cluster_id' => $clusterId,
+                        'user_id' => $userId,
+                        'done_branches' => [],
+                        'total_completed' => 0
+                    ]
                 ];
             }
             
@@ -492,25 +505,41 @@ public function update_service_reports($data) {
                 'data' => [
                     'cluster_id' => $clusterId,
                     'user_id' => $userId,
-                    'done_branches' => $doneBranches,
-                    'total_completed' => count($doneBranches)
+                    'technician_name' => $doneBranchesResult['technician_name'],
+                    'technician_email' => $doneBranchesResult['technician_email'],
+                    'done_branches' => $doneBranchesResult['done_branches'],
+                    'total_completed' => count($doneBranchesResult['done_branches'])
                 ]
             ];
         } else {
             // Get all done branches for user across all clusters
-            $allDoneBranches = ClusterTechnician::getAllDoneBranchesByUser($userId);
+            $allDoneBranchesResult = ClusterTechnician::getAllDoneBranchesByUser($userId);
             
-            if ($allDoneBranches === false) {
+            if ($allDoneBranchesResult === false) {
                 return [
                     'status' => 'error',
                     'message' => 'Database error occurred while retrieving completed branches'
                 ];
             }
             
+            if (empty($allDoneBranchesResult)) {
+                return [
+                    'status' => 'success',
+                    'message' => 'No completed branches found',
+                    'data' => [
+                        'user_id' => $userId,
+                        'total_clusters_with_completions' => 0,
+                        'total_branches_completed' => 0,
+                        'clusters' => []
+                    ]
+                ];
+            }
+            
             // Calculate totals
-            $totalClusters = count($allDoneBranches);
+            $clusters = $allDoneBranchesResult['clusters'];
+            $totalClusters = count($clusters);
             $totalBranches = 0;
-            foreach ($allDoneBranches as $cluster) {
+            foreach ($clusters as $cluster) {
                 $totalBranches += $cluster['total_completed'];
             }
             
@@ -519,9 +548,11 @@ public function update_service_reports($data) {
                 'message' => 'All completed branches retrieved successfully',
                 'data' => [
                     'user_id' => $userId,
+                    'technician_name' => $allDoneBranchesResult['technician_name'],
+                    'technician_email' => $allDoneBranchesResult['technician_email'],
                     'total_clusters_with_completions' => $totalClusters,
                     'total_branches_completed' => $totalBranches,
-                    'clusters' => $allDoneBranches
+                    'clusters' => $clusters
                 ]
             ];
         }
