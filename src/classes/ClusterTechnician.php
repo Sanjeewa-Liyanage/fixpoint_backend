@@ -454,11 +454,12 @@ class ClusterTechnician extends Model {
                     $doneBranches = [];
                 }
                 
-                // Add completion timestamp to branch data
-                $branchData['completed_at'] = date('Y-m-d H:i:s');
+                // Add completion timestamp to branch data using Colombo time
+                $currentTime = $conn->query("SELECT CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Colombo'")->fetchColumn();
+                $branchData['completed_at'] = $currentTime;
                 $doneBranches[] = $branchData;
                 
-                $updateSql = "UPDATE done_clusters SET done_branches = :done_branches WHERE done_id = :done_id";
+                $updateSql = "UPDATE done_clusters SET done_branches = :done_branches, done_at = CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Colombo' WHERE done_id = :done_id";
                 $updateStmt = $conn->prepare($updateSql);
                 $updateStmt->bindParam(':done_id', $existingRecord['done_id']);
                 $doneBranchesJson = json_encode($doneBranches);
@@ -469,10 +470,11 @@ class ClusterTechnician extends Model {
                 
             } else {
                 // Create new record
-                $branchData['completed_at'] = date('Y-m-d H:i:s');
+                $currentTime = $conn->query("SELECT CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Colombo'")->fetchColumn();
+                $branchData['completed_at'] = $currentTime;
                 $doneBranches = [$branchData];
                 
-                $insertSql = "INSERT INTO done_clusters (cluster_id, user_id, done_branches) VALUES (:cluster_id, :user_id, :done_branches)";
+                $insertSql = "INSERT INTO done_clusters (cluster_id, user_id, done_branches, done_at) VALUES (:cluster_id, :user_id, :done_branches, CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Colombo')";
                 $insertStmt = $conn->prepare($insertSql);
                 $insertStmt->bindParam(':cluster_id', $clusterId);
                 $insertStmt->bindParam(':user_id', $userId);
@@ -501,7 +503,7 @@ class ClusterTechnician extends Model {
         $conn = DatabaseConnection::getConnection();
         
         try {
-            $sql = "SELECT dc.done_branches, u.username as technician_name, u.email as technician_email 
+            $sql = "SELECT dc.done_branches, dc.done_at AT TIME ZONE 'Asia/Colombo' as done_at, u.username as technician_name, u.email as technician_email 
                     FROM done_clusters dc 
                     LEFT JOIN users u ON dc.user_id = u.user_id 
                     WHERE dc.cluster_id = :cluster_id AND dc.user_id = :user_id";
@@ -516,6 +518,7 @@ class ClusterTechnician extends Model {
                 $doneBranches = json_decode($result['done_branches'], true);
                 return [
                     'done_branches' => $doneBranches,
+                    'done_at' => $result['done_at'],
                     'technician_name' => $result['technician_name'],
                     'technician_email' => $result['technician_email']
                 ];
@@ -538,11 +541,11 @@ class ClusterTechnician extends Model {
         $conn = DatabaseConnection::getConnection();
         
         try {
-            $sql = "SELECT dc.cluster_id, dc.done_branches, u.username as technician_name, u.email as technician_email 
+            $sql = "SELECT dc.cluster_id, dc.done_branches, dc.done_at AT TIME ZONE 'Asia/Colombo' as done_at, u.username as technician_name, u.email as technician_email 
                     FROM done_clusters dc 
                     LEFT JOIN users u ON dc.user_id = u.user_id 
                     WHERE dc.user_id = :user_id 
-                    ORDER BY dc.done_id DESC";
+                    ORDER BY dc.done_at DESC";
             $stmt = $conn->prepare($sql);
             $stmt->bindParam(':user_id', $userId);
             $stmt->execute();
@@ -566,6 +569,7 @@ class ClusterTechnician extends Model {
                     $doneClusters[] = [
                         'cluster_id' => $row['cluster_id'],
                         'done_branches' => $doneBranches,
+                        'done_at' => $row['done_at'],
                         'total_completed' => is_array($doneBranches) ? count($doneBranches) : 0
                     ];
                 }

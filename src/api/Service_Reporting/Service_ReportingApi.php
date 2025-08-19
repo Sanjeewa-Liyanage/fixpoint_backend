@@ -507,6 +507,7 @@ public function update_service_reports($data) {
                     'user_id' => $userId,
                     'technician_name' => $doneBranchesResult['technician_name'],
                     'technician_email' => $doneBranchesResult['technician_email'],
+                    'done_at' => $doneBranchesResult['done_at'],
                     'done_branches' => $doneBranchesResult['done_branches'],
                     'total_completed' => count($doneBranchesResult['done_branches'])
                 ]
