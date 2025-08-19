@@ -1,4 +1,10 @@
 <?php
+require_once 'src/utils/AzureEmailService.php';
+require_once 'src/classes/Branch.php';
+require_once 'src/classes/Client.php';
+
+use Fixpoint\Utils\AzureEmailService;
+
 class Service_ReportingApi extends ApiResourceBase {
 public function __construct() {
     $this->setRoles([
@@ -142,6 +148,17 @@ public function create_service_report($data) {
         } elseif ($clusterId) {
             $message .= " (Cluster ID: {$clusterId})";
             $responseData['message'] = $message;
+        }
+        
+        // Send email notification to branch
+        $emailResult = $this->sendServiceReportEmail($serviceReport, $user_id);
+        if ($emailResult['success']) {
+            $responseData['email_status'] = 'Email sent successfully to branch';
+            $responseData['email_recipient'] = $emailResult['recipient'] ?? 'branch email';
+        } else {
+            $responseData['email_status'] = 'Email sending failed: ' . $emailResult['message'];
+            // Don't fail the entire request if email fails
+            error_log("Service report email failed: " . $emailResult['message']);
         }
         
         return $responseData;
@@ -555,6 +572,114 @@ public function update_service_reports($data) {
                     'total_branches_completed' => $totalBranches,
                     'clusters' => $clusters
                 ]
+            ];
+        }
+    }
+
+    /**
+     * Send service report email to branch
+     * @param Service_Reporting $serviceReport The service report object
+     * @param int $userId The technician user ID
+     * @return array Result with success/error status
+     */
+    private function sendServiceReportEmail($serviceReport, $userId) {
+        try {
+            error_log("Starting service report email process for service_id: " . ($serviceReport->service_id ?? 'NULL'));
+            
+            // Get branch information
+            $branchData = Branch::getById($serviceReport->branch_id);
+            if (!$branchData) {
+                error_log("Branch not found for branch_id: " . $serviceReport->branch_id);
+                return [
+                    'success' => false,
+                    'message' => 'Branch not found'
+                ];
+            }
+            
+            if (empty($branchData['email'])) {
+                error_log("Branch email is empty for branch_id: " . $serviceReport->branch_id);
+                return [
+                    'success' => false,
+                    'message' => 'Branch email not found or invalid'
+                ];
+            }
+            
+            error_log("Branch found: " . $branchData['name'] . " - Email: " . $branchData['email']);
+
+            // Get client information
+            $clientData = Client::getById($serviceReport->client_id);
+            if (!$clientData) {
+                error_log("Client not found for client_id: " . $serviceReport->client_id);
+                return [
+                    'success' => false,
+                    'message' => 'Client information not found'
+                ];
+            }
+            
+            error_log("Client found: " . $clientData['name']);
+
+            // Get technician information
+            $conn = DatabaseConnection::getConnection();
+            $sql = "SELECT user_id, username, email FROM users WHERE user_id = :user_id";
+            $stmt = $conn->prepare($sql);
+            $stmt->bindParam(':user_id', $userId);
+            $stmt->execute();
+            $technicianData = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$technicianData) {
+                error_log("Technician not found for user_id: " . $userId);
+                return [
+                    'success' => false,
+                    'message' => 'Technician information not found'
+                ];
+            }
+            
+            error_log("Technician found: " . $technicianData['username']);
+
+            // Prepare service data array
+            $serviceData = [
+                'service_id' => $serviceReport->service_id,
+                'device_type' => $serviceReport->device_type,
+                'service_date' => $serviceReport->service_date,
+                'service_type' => $serviceReport->service_type,
+                'service_notes' => $serviceReport->service_notes,
+                'teller_scanner_serial' => $serviceReport->teller_scanner_serial,
+                'chdm_serial' => $serviceReport->chdm_serial,
+                'quarter' => $serviceReport->quarter
+            ];
+
+            error_log("Service data prepared: " . json_encode($serviceData));
+
+            // Configure and send email
+            $connectionString = "endpoint=https://fixpoit-mailler.unitedstates.communication.azure.com/;accesskey=DlCOIqLviNq3RKnhC10g61vOZ46nN3qtE4a3DR5IRke2vLzHJ6jnJQQJ99BHACULyCpQCLZ2AAAAAZCSSthx";
+            $senderAddress = "DoNotReply@1150820c-c077-40e5-bf54-90e4e6adcb7e.azurecomm.net";
+            
+            error_log("Configuring Azure Email Service");
+            AzureEmailService::configure($connectionString, $senderAddress);
+            
+            error_log("Sending email to: " . $branchData['email']);
+            $result = AzureEmailService::sendServiceReportEmail(
+                $branchData['email'],
+                $serviceData,
+                $branchData,
+                $clientData,
+                $technicianData
+            );
+
+            error_log("Email result: " . json_encode($result));
+
+            if ($result['success']) {
+                $result['recipient'] = $branchData['email'];
+            }
+
+            return $result;
+
+        } catch (Exception $e) {
+            error_log("Exception in sendServiceReportEmail: " . $e->getMessage());
+            error_log("Exception trace: " . $e->getTraceAsString());
+            return [
+                'success' => false,
+                'message' => 'Exception occurred: ' . $e->getMessage()
             ];
         }
     }
