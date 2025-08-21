@@ -314,13 +314,22 @@ HTML;
                 'senderAddress' => self::$senderAddress,
             ];
 
-            $response = self::performRequest('POST', '/emails:send', $body);
-            
-            return [
-                'status' => 'success',
-                'message' => 'Email sent successfully.',
-                'operationId' => $response['id'] ?? null
-            ];
+      $response = self::performRequest('POST', '/emails:send', $body);
+      $respStatus = $response['statusCode'] ?? null;
+      if ($respStatus && $respStatus >= 200 && $respStatus < 300) {
+        return [
+          'status' => 'success',
+          'message' => 'Email queued successfully.',
+          'statusCode' => $respStatus,
+          'requestId' => $response['headers']['x-ms-request-id'][0] ?? null,
+          'operationLocation' => $response['headers']['Operation-Location'][0] ?? ($response['headers']['operation-location'][0] ?? null)
+        ];
+      }
+      return [
+        'status' => 'error',
+        'message' => 'Email send failed: HTTP ' . ($respStatus ?? 'unknown') . ' ' . (($response['rawBody'] ?? '') ?: 'No response body'),
+        'statusCode' => $respStatus
+      ];
 
         } catch (\Exception $e) {
             error_log("AzureEmailService Error: " . $e->getMessage());
@@ -329,6 +338,269 @@ HTML;
                 'message' => $e->getMessage()
             ];
         }
+    }
+
+    /**
+     * Send a service report email to a branch (invoice-style)
+     * @param string $recipientEmail The branch email address
+     * @param array $serviceData Service report data
+     * @param array $branchData Branch information
+     * @param array $clientData Client information
+     * @param array $technicianData Technician information
+     * @return array Result with success/error status
+     */
+    public static function sendServiceReportEmail(
+        string $recipientEmail,
+        array $serviceData,
+        array $branchData,
+        array $clientData,
+        array $technicianData
+    ): array {
+        try {
+            self::ensureConfigured();
+
+            $subject = 'Service Report - ' . ($branchData['name'] ?? 'Branch') . ' - ' . ($serviceData['service_date'] ?? date('Y-m-d'));
+            $htmlContent = self::buildServiceReportHtml($serviceData, $branchData, $clientData, $technicianData);
+
+            $emailData = [
+                'senderAddress' => self::$senderAddress,
+                'content' => [
+                    'subject' => $subject,
+                    'html' => $htmlContent,
+                ],
+                'recipients' => [
+                    'to' => [
+                        [
+                            'address' => $recipientEmail,
+                            'displayName' => $branchData['contact_person'] ?? 'Branch Manager'
+                        ]
+                    ]
+                ]
+            ];
+
+            $path = '/emails:send';
+      $result = self::performRequest('POST', $path, $emailData);
+
+      $statusCode = $result['statusCode'] ?? null;
+      $headers = $result['headers'] ?? [];
+      $rawBody = $result['rawBody'] ?? '';
+      $json = $result['json'] ?? null;
+
+      if ($statusCode && $statusCode >= 200 && $statusCode < 300) {
+        // Azure Email usually returns 202 with Operation-Location + x-ms-request-id headers.
+        return [
+          'success' => true,
+          'message' => 'Service report email queued for delivery',
+          'statusCode' => $statusCode,
+          'requestId' => $headers['x-ms-request-id'][0] ?? null,
+          'operationLocation' => $headers['Operation-Location'][0] ?? ($headers['operation-location'][0] ?? null),
+          'rawBody' => $rawBody,
+          'responseJson' => $json,
+        ];
+      }
+
+      $errorMsg = 'HTTP ' . ($statusCode ?? 'unknown') . ': ' . ($rawBody !== '' ? $rawBody : 'No response body');
+      error_log("Service report email failed: " . $errorMsg);
+      return [
+        'success' => false,
+        'message' => 'Failed to send service report email: ' . $errorMsg,
+        'statusCode' => $statusCode,
+        'rawBody' => $rawBody,
+      ];
+
+        } catch (\RuntimeException $e) {
+            error_log('Service report email RuntimeException: ' . $e->getMessage());
+            return [
+                'success' => false,
+                'message' => 'Email service error: ' . $e->getMessage()
+            ];
+        } catch (\Exception $e) {
+            error_log('Service report email Exception: ' . $e->getMessage());
+            return [
+                'success' => false,
+                'message' => 'Unexpected error: ' . $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Build HTML content for service report email (invoice style)
+     * @param array $serviceData Service report data
+     * @param array $branchData Branch information
+     * @param array $clientData Client information
+     * @param array $technicianData Technician information
+     * @return string HTML content
+     */
+    private static function buildServiceReportHtml(
+        array $serviceData,
+        array $branchData,
+        array $clientData,
+        array $technicianData
+    ): string {
+        $year = date('Y');
+        $serviceDate = date('F d, Y', strtotime($serviceData['service_date'] ?? 'now'));
+        $currentDate = date('F d, Y');
+        $quarter = 'Q' . ($serviceData['quarter'] ?? '1');
+        $invoiceNumber = 'SR-' . str_pad($serviceData['service_id'] ?? rand(1000, 9999), 3, '0', STR_PAD_LEFT);
+        
+        // Escape all data for HTML
+        $branchName = htmlspecialchars($branchData['name'] ?? 'N/A', ENT_QUOTES, 'UTF-8');
+        $branchAddress = htmlspecialchars($branchData['address'] ?? 'N/A', ENT_QUOTES, 'UTF-8');
+        $branchContact = htmlspecialchars($branchData['contact_person'] ?? 'N/A', ENT_QUOTES, 'UTF-8');
+        $branchPhone = htmlspecialchars($branchData['phone'] ?? 'N/A', ENT_QUOTES, 'UTF-8');
+        $branchEmail = htmlspecialchars($branchData['email'] ?? 'N/A', ENT_QUOTES, 'UTF-8');
+        $clientName = htmlspecialchars($clientData['name'] ?? 'N/A', ENT_QUOTES, 'UTF-8');
+        $technicianName = htmlspecialchars($technicianData['username'] ?? 'N/A', ENT_QUOTES, 'UTF-8');
+        $deviceType = htmlspecialchars(ucfirst(str_replace('_', ' ', $serviceData['device_type'] ?? 'N/A')), ENT_QUOTES, 'UTF-8');
+        $serviceType = htmlspecialchars($serviceData['service_type'] ?? 'N/A', ENT_QUOTES, 'UTF-8');
+        $serviceNotes = htmlspecialchars($serviceData['service_notes'] ?? 'No additional notes', ENT_QUOTES, 'UTF-8');
+        $tellerSerial = htmlspecialchars($serviceData['teller_scanner_serial'] ?? 'N/A', ENT_QUOTES, 'UTF-8');
+        $chdmSerial = htmlspecialchars($serviceData['chdm_serial'] ?? 'N/A', ENT_QUOTES, 'UTF-8');
+        
+        return <<<HTML
+<div style="font-family: Arial, sans-serif; background: #ffffff; padding: 20px; max-width: 800px; margin: 0 auto;">
+  <!-- Header -->
+  <div style="border: 2px solid #333333; margin-bottom: 20px;">
+    <div style="background: #e8f4f8; padding: 15px; border-bottom: 1px solid #333333; display: flex; justify-content: space-between; align-items: center;">
+      <div>
+        <h1 style="margin: 0; font-size: 24px; font-weight: bold; color: #333333;">SERVICE REPORT</h1>
+        <p style="margin: 5px 0 0 0; font-size: 14px; color: #666666;">FIXPOINT SERVICE MANAGEMENT</p>
+      </div>
+      <div style="text-align: right;">
+        <img src="https://sahqlmlmflamaghbwkin.supabase.co/storage/v1/object/public/images/faviccon.ico" alt="FixPoint Logo" style="width: 50px; height: 50px;" />
+      </div>
+    </div>
+  </div>
+
+  <!-- Company and Bill To Section -->
+  <div style="display: flex; margin-bottom: 20px;">
+    <!-- Company/Service Provider -->
+    <div style="flex: 1; margin-right: 20px;">
+      <h3 style="margin: 0 0 10px 0; font-size: 14px; font-weight: bold; color: #333333;">SERVICE PROVIDER</h3>
+      <div style="font-size: 12px; line-height: 1.4; color: #333333;">
+        <strong>Name:</strong> FixPoint Solutions<br>
+        <strong>Address:</strong> Colombo, Sri Lanka<br>
+        <strong>Phone:</strong> +94 XX XXX XXXX<br>
+        <strong>Email:</strong> service@fixpoint.lk
+      </div>
+    </div>
+
+    <!-- Bill To -->
+    <div style="flex: 1; margin-right: 20px;">
+      <h3 style="margin: 0 0 10px 0; font-size: 14px; font-weight: bold; color: #333333;">BILL TO</h3>
+      <div style="font-size: 12px; line-height: 1.4; color: #333333;">
+        <strong>Client:</strong> {$clientName}<br>
+        <strong>Branch:</strong> {$branchName}<br>
+        <strong>Address:</strong> {$branchAddress}<br>
+        <strong>Contact:</strong> {$branchContact}<br>
+        <strong>Phone:</strong> {$branchPhone}<br>
+        <strong>Email:</strong> {$branchEmail}
+      </div>
+    </div>
+
+    <!-- Details -->
+    <div style="flex: 1;">
+      <h3 style="margin: 0 0 10px 0; font-size: 14px; font-weight: bold; color: #333333;">DETAILS</h3>
+      <table style="width: 100%; font-size: 12px;">
+        <tr>
+          <td style="border: 1px solid #333333; padding: 5px; background: #f0f0f0; font-weight: bold;">Date</td>
+          <td style="border: 1px solid #333333; padding: 5px;">{$currentDate}</td>
+        </tr>
+        <tr>
+          <td style="border: 1px solid #333333; padding: 5px; background: #f0f0f0; font-weight: bold;">Report #</td>
+          <td style="border: 1px solid #333333; padding: 5px;">{$invoiceNumber}</td>
+        </tr>
+        <tr>
+          <td style="border: 1px solid #333333; padding: 5px; background: #f0f0f0; font-weight: bold;">Quarter</td>
+          <td style="border: 1px solid #333333; padding: 5px;">{$quarter}</td>
+        </tr>
+        <tr>
+          <td style="border: 1px solid #333333; padding: 5px; background: #f0f0f0; font-weight: bold;">Service Date</td>
+          <td style="border: 1px solid #333333; padding: 5px;">{$serviceDate}</td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- Service Details Table -->
+  <div style="margin-bottom: 20px;">
+    <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+      <thead>
+        <tr>
+          <th style="border: 1px solid #333333; padding: 10px; background: #d4e6f1; font-weight: bold; text-align: left;">DESCRIPTION OF SERVICES</th>
+          <th style="border: 1px solid #333333; padding: 10px; background: #e8daef; font-weight: bold; text-align: center; width: 15%;">TYPE</th>
+          <th style="border: 1px solid #333333; padding: 10px; background: #fadbd8; font-weight: bold; text-align: center; width: 20%;">DEVICE/SERIAL</th>
+          <th style="border: 1px solid #333333; padding: 10px; background: #d5f4e6; font-weight: bold; text-align: center; width: 15%;">STATUS</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="border: 1px solid #333333; padding: 10px; vertical-align: top;">
+            <strong>Device Type:</strong> {$deviceType}<br>
+            <strong>Service Performed:</strong> {$serviceType}<br>
+            <strong>Technician:</strong> {$technicianName}<br><br>
+            <strong>Service Notes:</strong><br>
+            {$serviceNotes}
+          </td>
+          <td style="border: 1px solid #333333; padding: 10px; text-align: center; vertical-align: top;">
+            {$serviceType}
+          </td>
+          <td style="border: 1px solid #333333; padding: 10px; text-align: center; vertical-align: top;">
+            <strong>Teller Scanner:</strong><br>{$tellerSerial}<br><br>
+            <strong>CHDM:</strong><br>{$chdmSerial}
+          </td>
+          <td style="border: 1px solid #333333; padding: 10px; text-align: center; vertical-align: top;">
+            <span style="background: #d4edda; color: #155724; padding: 5px 10px; border-radius: 3px; font-weight: bold;">COMPLETED</span>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Summary Section -->
+  <div style="display: flex; margin-bottom: 20px;">
+    <!-- Notes Section -->
+    <div style="flex: 2; margin-right: 20px;">
+      <h3 style="margin: 0 0 10px 0; font-size: 14px; font-weight: bold; color: #333333;">NOTES</h3>
+      <div style="border: 1px solid #333333; padding: 15px; min-height: 100px; background: #fafafa;">
+        <p style="margin: 0; font-size: 12px; color: #333333;">
+          Service completed successfully as per the scheduled maintenance routine for {$quarter}.
+          All equipment has been tested and is functioning within normal parameters.
+          This service report has been automatically generated and logged in our system.
+        </p>
+      </div>
+    </div>
+
+    <!-- Summary Totals -->
+    <div style="flex: 1;">
+      <table style="width: 100%; font-size: 12px;">
+        <tr>
+          <td style="border: 1px solid #333333; padding: 8px; background: #f0f0f0; font-weight: bold;">SERVICE STATUS</td>
+          <td style="border: 1px solid #333333; padding: 8px; text-align: right; background: #d4edda; color: #155724; font-weight: bold;">COMPLETED</td>
+        </tr>
+        <tr>
+          <td style="border: 1px solid #333333; padding: 8px; background: #f0f0f0; font-weight: bold;">QUARTER</td>
+          <td style="border: 1px solid #333333; padding: 8px; text-align: right;">{$quarter}</td>
+        </tr>
+        <tr>
+          <td style="border: 1px solid #333333; padding: 8px; background: #f0f0f0; font-weight: bold;">TECHNICIAN</td>
+          <td style="border: 1px solid #333333; padding: 8px; text-align: right;">{$technicianName}</td>
+        </tr>
+        <tr style="background: #e8f4f8;">
+          <td style="border: 2px solid #333333; padding: 10px; font-weight: bold; font-size: 14px;">REPORT STATUS</td>
+          <td style="border: 2px solid #333333; padding: 10px; text-align: right; font-weight: bold; font-size: 14px; color: #155724;">FINAL</td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div style="text-align: center; font-size: 10px; color: #666666; margin-top: 30px; border-top: 1px solid #cccccc; padding-top: 15px;">
+    <p style="margin: 0;">This is an automated service report generated by FixPoint® Service Management System</p>
+    <p style="margin: 5px 0 0 0;">© {$year} FixPoint Solutions. All rights reserved. | Report generated on {$currentDate}</p>
+  </div>
+</div>
+HTML;
     }
 
     /**
@@ -341,39 +613,55 @@ HTML;
      */
     private static function performRequest(string $method, string $path, ?array $body = null): array
     {
-        $timestamp = gmdate('D, d M Y H:i:s T');
-        $contentHash = base64_encode(hash('sha256', $body ? json_encode($body) : '', true));
-        
-        $pathAndQuery = $path . '?api-version=' . self::$apiVersion;
+    // NOTE: Azure Email (ACS) send endpoint commonly returns 202 with *empty* body.
+    // Previous implementation discarded status/headers causing false failure handling.
+    // We now capture statusCode, headers, raw body and decoded JSON (if any).
 
-        $stringToSign = strtoupper($method) . "\n"
-                      . $pathAndQuery . "\n"
-                      . $timestamp . ";" . self::$host . ";" . $contentHash;
+    $timestamp = gmdate('D, d M Y H:i:s T');
 
-        $hmac = base64_encode(hash_hmac('sha256', $stringToSign, base64_decode(self::$accessKey), true));
-        
-        $authorization = 'HMAC-SHA256 SignedHeaders=x-ms-date;host;x-ms-content-sha256&Signature=' . $hmac;
-        
-        $headers = [
-            'x-ms-date' => $timestamp,
-            'host' => self::$host,
-            'x-ms-content-sha256' => $contentHash,
-            'Authorization' => $authorization,
-            'Content-Type' => 'application/json',
-        ];
+    // Pre-encode body once so hash matches exactly what is sent.
+    $encodedBody = $body !== null ? json_encode($body) : '';
+    $contentHash = base64_encode(hash('sha256', $encodedBody, true));
 
-        $options = [
-            'headers' => $headers,
-            'query' => ['api-version' => self::$apiVersion]
-        ];
-        if ($body) {
-            $options['json'] = $body;
-        }
+    $pathAndQuery = $path . '?api-version=' . self::$apiVersion;
 
-        $response = self::$httpClient->request($method, $path, $options);
-        
-        $responseBody = (string) $response->getBody();
-        return json_decode($responseBody, true) ?: [];
+    $stringToSign = strtoupper($method) . "\n"
+      . $pathAndQuery . "\n"
+      . $timestamp . ";" . self::$host . ";" . $contentHash;
+
+    $hmac = base64_encode(hash_hmac('sha256', $stringToSign, base64_decode(self::$accessKey), true));
+    $authorization = 'HMAC-SHA256 SignedHeaders=x-ms-date;host;x-ms-content-sha256&Signature=' . $hmac;
+
+    $headers = [
+      'x-ms-date' => $timestamp,
+      'host' => self::$host,
+      'x-ms-content-sha256' => $contentHash,
+      'Authorization' => $authorization,
+      'Content-Type' => 'application/json',
+    ];
+
+    $options = [
+      'headers' => $headers,
+      'query' => ['api-version' => self::$apiVersion],
+    ];
+    if ($body !== null) {
+      // Use body string to ensure signature alignment.
+      $options['body'] = $encodedBody; // Guzzle will not re-encode.
+    }
+
+    $response = self::$httpClient->request($method, $path, $options);
+
+    $statusCode = $response->getStatusCode();
+    $respHeaders = $response->getHeaders();
+    $rawBody = (string)$response->getBody();
+    $json = ($rawBody !== '') ? json_decode($rawBody, true) : null;
+
+    return [
+      'statusCode' => $statusCode,
+      'headers' => $respHeaders,
+      'rawBody' => $rawBody,
+      'json' => $json,
+    ];
     }
 }
 
