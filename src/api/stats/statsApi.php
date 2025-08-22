@@ -38,13 +38,16 @@ class StatsApi extends ApiResourceBase {
         $stmt->execute([':from'=>$from, ':to'=>$to]);
         $activeBranches = (int)$stmt->fetchColumn();
 
-        // Repair counts
+        // Repair counts (enhanced): treat 'completed' as closed, detect anomalies, and track completed within range
         $stmt = $conn->prepare("SELECT
             SUM(CASE WHEN status IN ('pending','in_progress') THEN 1 ELSE 0 END) AS open_repairs,
-            SUM(CASE WHEN status = 'closed' THEN 1 ELSE 0 END) AS closed_repairs
-            FROM repair WHERE start_time <= :to AND (end_time IS NULL OR end_time >= :from)");
+            SUM(CASE WHEN status IN ('closed','completed') THEN 1 ELSE 0 END) AS closed_repairs,
+            SUM(CASE WHEN status IN ('closed','completed') AND end_time BETWEEN :from AND :to THEN 1 ELSE 0 END) AS completed_in_range,
+            SUM(CASE WHEN end_time IS NOT NULL AND end_time < start_time THEN 1 ELSE 0 END) AS negative_duration
+            FROM repair
+            WHERE start_time <= :to AND (end_time IS NULL OR end_time >= :from)");
         $stmt->execute([':from'=>$from, ':to'=>$to]);
-        $repairRow = $stmt->fetch(PDO::FETCH_ASSOC) ?: ['open_repairs'=>0,'closed_repairs'=>0];
+        $repairRow = $stmt->fetch(PDO::FETCH_ASSOC) ?: ['open_repairs'=>0,'closed_repairs'=>0,'completed_in_range'=>0,'negative_duration'=>0];
 
         // Virtual support sessions count (presence of virtual_support_link)
         $stmt = $conn->prepare("SELECT COUNT(*) FROM repair WHERE virtual_support_link IS NOT NULL AND start_time BETWEEN :from AND :to");
@@ -57,9 +60,25 @@ class StatsApi extends ApiResourceBase {
         $serviceReports = (int)$stmt->fetchColumn();
 
         // MTTR (mean time to repair in minutes)
-        $stmt = $conn->prepare("SELECT AVG(EXTRACT(EPOCH FROM (end_time - start_time))/60) FROM repair WHERE end_time IS NOT NULL AND end_time BETWEEN :from AND :to");
+        // Raw (legacy) for reference
+        $stmt = $conn->prepare("SELECT AVG(EXTRACT(EPOCH FROM (end_time - start_time))/60)
+            FROM repair
+            WHERE end_time IS NOT NULL AND end_time BETWEEN :from AND :to");
         $stmt->execute([':from'=>$from, ':to'=>$to]);
-        $mttr = round((float)$stmt->fetchColumn(),2);
+        $mttrRaw = (float)$stmt->fetchColumn();
+
+        // Filtered MTTR: only closed/completed, non-negative, exclude extreme durations (> 7 days)
+        $stmt = $conn->prepare("SELECT AVG(EXTRACT(EPOCH FROM (end_time - start_time))/60)
+            FROM repair
+            WHERE status IN ('closed','completed')
+              AND end_time IS NOT NULL
+              AND end_time BETWEEN :from AND :to
+              AND end_time >= start_time
+              AND EXTRACT(EPOCH FROM (end_time - start_time)) <= :max_seconds");
+        $maxSeconds = 7 * 24 * 3600; // 7 days cap
+        $stmt->execute([':from'=>$from, ':to'=>$to, ':max_seconds'=>$maxSeconds]);
+        $mttrFiltered = (float)$stmt->fetchColumn();
+        $mttr = round($mttrFiltered ?: 0, 2);
 
         return [
             'status'=>'success',
@@ -69,11 +88,14 @@ class StatsApi extends ApiResourceBase {
                 'active_branches'=>$activeBranches,
                 'repairs_open'=>(int)$repairRow['open_repairs'],
                 'repairs_closed'=>(int)$repairRow['closed_repairs'],
+                'repairs_completed_in_range'=>(int)$repairRow['completed_in_range'],
+                'repair_anomalies_negative_duration'=>(int)$repairRow['negative_duration'],
                 'virtual_sessions'=>$virtualSessions,
                 'service_reports'=>$serviceReports
             ],
             'kpis'=>[
-                'mttr_minutes'=>$mttr
+                'mttr_minutes'=>$mttr,
+                'mttr_minutes_raw'=> round($mttrRaw ?: 0,2)
             ]
         ];
     }
