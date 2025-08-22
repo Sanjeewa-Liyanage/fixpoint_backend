@@ -28,8 +28,32 @@ class StatsApi extends ApiResourceBase {
         [$from,$to] = $this->resolveDateRange($data, 30);
         $conn = DatabaseConnection::getConnection();
 
+
         // Total branches
         $totalBranches = (int)$conn->query("SELECT COUNT(*) FROM branch")->fetchColumn();
+
+        // Branches by client (client_name => count)
+        $stmt = $conn->query("SELECT c.name AS client_name, COUNT(b.branch_id) AS branch_count FROM branch b JOIN client c ON b.client_id = c.client_id GROUP BY c.name ORDER BY c.name");
+        $branchesByClient = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $branchesByClient[$row['client_name']] = (int)$row['branch_count'];
+        }
+
+        // Repair counts by client
+        $stmt = $conn->prepare("SELECT c.name AS client_name, COUNT(r.repair_id) AS repair_count FROM client c JOIN branch b ON c.client_id = b.client_id LEFT JOIN repair r ON b.branch_id = r.branch_id AND r.start_time BETWEEN :from AND :to GROUP BY c.name ORDER BY c.name");
+        $stmt->execute([':from'=>$from, ':to'=>$to]);
+        $repairsByClient = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $repairsByClient[$row['client_name']] = (int)$row['repair_count'];
+        }
+
+        // Service counts by client
+        $stmt = $conn->prepare("SELECT c.name AS client_name, COUNT(s.service_id) AS service_count FROM client c JOIN branch b ON c.client_id = b.client_id LEFT JOIN service s ON b.branch_id = s.branch_id AND s.service_date BETWEEN :from AND :to GROUP BY c.name ORDER BY c.name");
+        $stmt->execute([':from'=>$from, ':to'=>$to]);
+        $servicesByClient = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $servicesByClient[$row['client_name']] = (int)$row['service_count'];
+        }
 
         // Active branches (with at least one repair or service in range)
         $stmt = $conn->prepare("SELECT COUNT(DISTINCT b.branch_id) FROM branch b
@@ -91,7 +115,10 @@ class StatsApi extends ApiResourceBase {
                 'repairs_completed_in_range'=>(int)$repairRow['completed_in_range'],
                 'repair_anomalies_negative_duration'=>(int)$repairRow['negative_duration'],
                 'virtual_sessions'=>$virtualSessions,
-                'service_reports'=>$serviceReports
+                'service_reports'=>$serviceReports,
+                'branches_by_client'=>$branchesByClient,
+                'repairs_by_client'=>$repairsByClient,
+                'services_by_client'=>$servicesByClient
             ],
             'kpis'=>[
                 'mttr_minutes'=>$mttr,
