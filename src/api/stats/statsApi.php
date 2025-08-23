@@ -12,6 +12,7 @@ class StatsApi extends ApiResourceBase {
             'routine_summary' => ['admin','technician'],
             'cluster_summary' => ['admin','technician'],
             'chdm_summary' => ['admin','technician'],
+            'user_engagement' => ['admin','technician','Quality_Checker'],
             'qc_summary' => ['admin','technician']
         ]);
     }
@@ -404,6 +405,65 @@ class StatsApi extends ApiResourceBase {
         } catch(Exception $e){
             return ['status'=>'error','message'=>'QC stats error: '.$e->getMessage()];
         }
+    }
+
+    /** User engagement stats: top users by services, repairs, done cluster completions, QC reports */
+    public function user_engagement($data) {
+        $user = $this->getAuthenticatedUser();
+        if(!$user) return ['status'=>'error','message'=>'Invalid authentication token'];
+        if(!$this->checkRoles($user['role_name'], 'user_engagement')) return ['status'=>'error','message'=>'Unauthorized'];
+
+        [$from,$to] = $this->resolveDateRange($data, 30);
+        $limit = min(max((int)($data['limit'] ?? 10),1),100);
+        $conn = DatabaseConnection::getConnection();
+
+        // Top users by services (service.user_id)
+        $stmt = $conn->prepare("SELECT u.user_id, u.username, COUNT(s.service_id) AS services_count FROM users u LEFT JOIN service s ON s.user_id = u.user_id AND s.service_date BETWEEN :from AND :to GROUP BY u.user_id, u.username ORDER BY services_count DESC, u.username LIMIT :limit");
+        $stmt->bindParam(':from', $from);
+        $stmt->bindParam(':to', $to);
+        $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+        $stmt->execute();
+        $services = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Top users by repairs (repair.technician_id)
+        $stmt = $conn->prepare("SELECT u.user_id, u.username, COUNT(r.repair_id) AS repairs_count FROM users u LEFT JOIN repair r ON r.technician_id = u.user_id AND r.start_time BETWEEN :from AND :to GROUP BY u.user_id, u.username ORDER BY repairs_count DESC, u.username LIMIT :limit");
+        $stmt->bindParam(':from', $from);
+        $stmt->bindParam(':to', $to);
+        $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+        $stmt->execute();
+        $repairs = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Top users by done_clusters completions (done_clusters.user_id, count array length)
+        // We count number of done_branches entries per user in range
+        try {
+            $doneStmt = $conn->prepare("SELECT u.user_id, u.username, SUM(json_array_length(dc.done_branches::json)) AS completed_branches FROM users u LEFT JOIN done_clusters dc ON dc.user_id = u.user_id AND dc.done_at BETWEEN :from AND :to GROUP BY u.user_id, u.username ORDER BY completed_branches DESC NULLS LAST, u.username LIMIT :limit");
+            $doneStmt->bindParam(':from', $from);
+            $doneStmt->bindParam(':to', $to);
+            $doneStmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+            $doneStmt->execute();
+            $doneClusters = $doneStmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch(Exception $e) {
+            // If done_clusters or json_array_length not available, return empty
+            $doneClusters = [];
+        }
+
+        // Top QC officers by quality_check entries
+        $stmt = $conn->prepare("SELECT u.user_id, u.username, COUNT(q.qc_id) AS qc_count FROM users u LEFT JOIN quality_check q ON q.qc_officer_id = u.user_id AND q.date BETWEEN :from AND :to GROUP BY u.user_id, u.username ORDER BY qc_count DESC, u.username LIMIT :limit");
+        $stmt->bindParam(':from', $from);
+        $stmt->bindParam(':to', $to);
+        $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+        $stmt->execute();
+        $qc = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        return [
+            'status'=>'success',
+            'range'=>['from'=>$from,'to'=>$to],
+            'limit'=>$limit,
+            'by_services'=>$services,
+            'by_repairs'=>$repairs,
+            'by_done_clusters'=>$doneClusters,
+            'by_qc'=>$qc
+        ];
     }
 
     /** Trend of repairs created / closed per day */
