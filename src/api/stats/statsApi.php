@@ -175,6 +175,16 @@ class StatsApi extends ApiResourceBase {
             $completedPerDay = [];
             foreach($labels as $d){ $completedPerDay[] = $timelineMap[$d] ?? 0; }
             $out['timeline'] = ['labels'=>$labels,'completed'=>$completedPerDay];
+            // Compact timeline: remove days with zero completed to avoid unrelated/empty data
+            $compactLabels = [];
+            $compactCompleted = [];
+            foreach($labels as $i => $d){
+                if(($timelineMap[$d] ?? 0) > 0){
+                    $compactLabels[] = $d;
+                    $compactCompleted[] = (int)$timelineMap[$d];
+                }
+            }
+            $out['timeline_compact'] = ['labels'=>$compactLabels,'completed'=>$compactCompleted];
 
             return [
                 'status'=>'success',
