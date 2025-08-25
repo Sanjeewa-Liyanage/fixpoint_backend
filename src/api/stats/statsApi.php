@@ -164,6 +164,49 @@ class StatsApi extends ApiResourceBase {
             $stmt->execute([':from'=>$from, ':to'=>$to]);
             $out['software_versions'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+            // Latest installation with branch & client details
+            // Prefer installations completed in range, then installations by date in range, then overall latest
+            $latest = null;
+            // 1) Prefer by completion_date in range
+            $latestByCompletion = $conn->prepare("SELECT i.installation_id, i.branch_id, b.name AS branch_name, b.address AS branch_address, i.technician_id, u.username AS technician_name, i.status, i.date, i.completion_date, i.software_version, c.name AS client_name
+                FROM installation i
+                LEFT JOIN branch b ON i.branch_id = b.branch_id
+                LEFT JOIN client c ON b.client_id = c.client_id
+                LEFT JOIN users u ON i.technician_id = u.user_id
+                WHERE i.completion_date BETWEEN :from AND :to
+                ORDER BY i.completion_date DESC LIMIT 1");
+            $latestByCompletion->execute([':from'=>$from, ':to'=>$to]);
+            $latest = $latestByCompletion->fetch(PDO::FETCH_ASSOC);
+            $latestSource = null;
+            if($latest){ $latestSource = 'completion'; }
+            if(!$latest){
+                // 2) fallback to installation date in range
+                $latestInRangeStmt = $conn->prepare("SELECT i.installation_id, i.branch_id, b.name AS branch_name, b.address AS branch_address, i.technician_id, u.username AS technician_name, i.status, i.date, i.completion_date, i.software_version, c.name AS client_name
+                    FROM installation i
+                    LEFT JOIN branch b ON i.branch_id = b.branch_id
+                    LEFT JOIN client c ON b.client_id = c.client_id
+                    LEFT JOIN users u ON i.technician_id = u.user_id
+                    WHERE i.date BETWEEN :from AND :to
+                    ORDER BY i.date DESC LIMIT 1");
+                $latestInRangeStmt->execute([':from'=>$from, ':to'=>$to]);
+                $latest = $latestInRangeStmt->fetch(PDO::FETCH_ASSOC);
+                if($latest){ $latestSource = 'date'; }
+            }
+            if(!$latest){
+                // 3) overall latest
+                $latestStmt = $conn->prepare("SELECT i.installation_id, i.branch_id, b.name AS branch_name, b.address AS branch_address, i.technician_id, u.username AS technician_name, i.status, i.date, i.completion_date, i.software_version, c.name AS client_name
+                    FROM installation i
+                    LEFT JOIN branch b ON i.branch_id = b.branch_id
+                    LEFT JOIN client c ON b.client_id = c.client_id
+                    LEFT JOIN users u ON i.technician_id = u.user_id
+                    ORDER BY COALESCE(i.completion_date, i.date) DESC LIMIT 1");
+                $latestStmt->execute();
+                $latest = $latestStmt->fetch(PDO::FETCH_ASSOC);
+                if($latest){ $latestSource = 'overall'; }
+            }
+            $out['latest_installation_branch'] = $latest ?: null;
+            $out['latest_installation_source'] = $latestSource ?: 'none';
+
             // Status timeline (daily counts completed)
             $stmt = $conn->prepare("SELECT DATE(completion_date) d, COUNT(*) c FROM installation 
                 WHERE completion_date IS NOT NULL AND completion_date BETWEEN :from AND :to GROUP BY d ORDER BY d");
@@ -192,7 +235,9 @@ class StatsApi extends ApiResourceBase {
                 'totals'=>$out['totals'],
                 'kpis'=>$out['kpis'],
                 'software_versions'=>$out['software_versions'],
-                'timeline'=>$out['timeline']
+                'latest_installation_branch'=>$out['latest_installation_branch'] ?? null,
+                'timeline'=>$out['timeline'],
+                'timeline_compact'=>$out['timeline_compact'] ?? ['labels'=>[],'completed'=>[]]
             ];
         } catch(Exception $e){
             return ['status'=>'error','message'=>'Installation stats error: '.$e->getMessage()];
