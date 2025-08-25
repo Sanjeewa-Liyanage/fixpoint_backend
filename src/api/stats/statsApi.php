@@ -164,9 +164,12 @@ class StatsApi extends ApiResourceBase {
             $stmt->execute([':from'=>$from, ':to'=>$to]);
             $out['software_versions'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-            // Latest installation with branch & client details
+            // Latest installations with branch & client details (return multiple)
             // Prefer installations completed in range, then installations by date in range, then overall latest
-            $latest = null;
+            $latest_limit = min(max((int)($data['latest_limit'] ?? 5),1),50);
+            $latestRows = [];
+            $latestSource = null;
+
             // 1) Prefer by completion_date in range
             $latestByCompletion = $conn->prepare("SELECT i.installation_id, i.branch_id, b.name AS branch_name, b.address AS branch_address, i.technician_id, u.username AS technician_name, i.status, i.date, i.completion_date, i.software_version, c.name AS client_name
                 FROM installation i
@@ -174,37 +177,46 @@ class StatsApi extends ApiResourceBase {
                 LEFT JOIN client c ON b.client_id = c.client_id
                 LEFT JOIN users u ON i.technician_id = u.user_id
                 WHERE i.completion_date BETWEEN :from AND :to
-                ORDER BY i.completion_date DESC LIMIT 1");
-            $latestByCompletion->execute([':from'=>$from, ':to'=>$to]);
-            $latest = $latestByCompletion->fetch(PDO::FETCH_ASSOC);
-            $latestSource = null;
-            if($latest){ $latestSource = 'completion'; }
-            if(!$latest){
-                // 2) fallback to installation date in range
+                ORDER BY i.completion_date DESC LIMIT :llimit");
+            $latestByCompletion->bindParam(':from', $from);
+            $latestByCompletion->bindParam(':to', $to);
+            $latestByCompletion->bindValue(':llimit', $latest_limit, PDO::PARAM_INT);
+            $latestByCompletion->execute();
+            $rows = $latestByCompletion->fetchAll(PDO::FETCH_ASSOC);
+            if(count($rows) > 0){ $latestRows = $rows; $latestSource = 'completion'; }
+
+            // 2) fallback to installation date in range
+            if(empty($latestRows)){
                 $latestInRangeStmt = $conn->prepare("SELECT i.installation_id, i.branch_id, b.name AS branch_name, b.address AS branch_address, i.technician_id, u.username AS technician_name, i.status, i.date, i.completion_date, i.software_version, c.name AS client_name
                     FROM installation i
                     LEFT JOIN branch b ON i.branch_id = b.branch_id
                     LEFT JOIN client c ON b.client_id = c.client_id
                     LEFT JOIN users u ON i.technician_id = u.user_id
                     WHERE i.date BETWEEN :from AND :to
-                    ORDER BY i.date DESC LIMIT 1");
-                $latestInRangeStmt->execute([':from'=>$from, ':to'=>$to]);
-                $latest = $latestInRangeStmt->fetch(PDO::FETCH_ASSOC);
-                if($latest){ $latestSource = 'date'; }
+                    ORDER BY i.date DESC LIMIT :llimit");
+                $latestInRangeStmt->bindParam(':from', $from);
+                $latestInRangeStmt->bindParam(':to', $to);
+                $latestInRangeStmt->bindValue(':llimit', $latest_limit, PDO::PARAM_INT);
+                $latestInRangeStmt->execute();
+                $rows = $latestInRangeStmt->fetchAll(PDO::FETCH_ASSOC);
+                if(count($rows) > 0){ $latestRows = $rows; $latestSource = 'date'; }
             }
-            if(!$latest){
-                // 3) overall latest
+
+            // 3) overall latest
+            if(empty($latestRows)){
                 $latestStmt = $conn->prepare("SELECT i.installation_id, i.branch_id, b.name AS branch_name, b.address AS branch_address, i.technician_id, u.username AS technician_name, i.status, i.date, i.completion_date, i.software_version, c.name AS client_name
                     FROM installation i
                     LEFT JOIN branch b ON i.branch_id = b.branch_id
                     LEFT JOIN client c ON b.client_id = c.client_id
                     LEFT JOIN users u ON i.technician_id = u.user_id
-                    ORDER BY COALESCE(i.completion_date, i.date) DESC LIMIT 1");
+                    ORDER BY COALESCE(i.completion_date, i.date) DESC LIMIT :llimit");
+                $latestStmt->bindValue(':llimit', $latest_limit, PDO::PARAM_INT);
                 $latestStmt->execute();
-                $latest = $latestStmt->fetch(PDO::FETCH_ASSOC);
-                if($latest){ $latestSource = 'overall'; }
+                $rows = $latestStmt->fetchAll(PDO::FETCH_ASSOC);
+                if(count($rows) > 0){ $latestRows = $rows; $latestSource = 'overall'; }
             }
-            $out['latest_installation_branch'] = $latest ?: null;
+
+            $out['latest_installation_branch'] = $latestRows;
             $out['latest_installation_source'] = $latestSource ?: 'none';
 
             // Status timeline (daily counts completed)
