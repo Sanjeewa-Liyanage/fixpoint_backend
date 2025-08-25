@@ -485,40 +485,68 @@ class StatsApi extends ApiResourceBase {
         $conn = DatabaseConnection::getConnection();
         try {
             // Totals
-            $stmt = $conn->prepare("SELECT COUNT(*) FROM service WHERE service_date BETWEEN :from AND :to");
-            $stmt->execute([':from'=>$from, ':to'=>$to]);
+            $stmt = $conn->prepare("SELECT COUNT(*) AS null_service_date FROM service ");
+            $stmt->execute();
             $totalServices = (int)$stmt->fetchColumn();
 
             // By device type
-            $stmt = $conn->prepare("SELECT COALESCE(device_type,'unknown') AS device_type, COUNT(*) AS cnt FROM service WHERE service_date BETWEEN :from AND :to GROUP BY device_type ORDER BY cnt DESC");
-            $stmt->execute([':from'=>$from, ':to'=>$to]);
+            $stmt = $conn->prepare("SELECT COALESCE(device_type, 'unknown') AS device_type,
+       COUNT(*) AS cnt
+FROM service
+GROUP BY COALESCE(device_type, 'unknown')
+ORDER BY cnt DESC");
+            $stmt->execute();
             $byDevice = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             // By client
-            $stmt = $conn->prepare("SELECT c.client_id, c.name AS client_name, COUNT(s.service_id) AS cnt FROM client c JOIN branch b ON c.client_id = b.client_id LEFT JOIN service s ON s.branch_id = b.branch_id AND s.service_date BETWEEN :from AND :to GROUP BY c.client_id, c.name ORDER BY cnt DESC, c.name");
-            $stmt->execute([':from'=>$from, ':to'=>$to]);
+            $stmt = $conn->prepare("SELECT c.client_id, c.name AS client_name, COUNT(s.service_id) AS cnt FROM client c JOIN branch b ON c.client_id = b.client_id LEFT JOIN service s ON s.branch_id = b.branch_id  GROUP BY c.client_id, c.name ORDER BY cnt DESC, c.name");
+            $stmt->execute();
             $byClient = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             // By branch (top branches by service count)
-            $limit = min(max((int)($data['limit'] ?? 10),1),100);
-            $stmt = $conn->prepare("SELECT b.branch_id, b.name AS branch_name, COUNT(s.service_id) AS cnt FROM branch b LEFT JOIN service s ON s.branch_id = b.branch_id AND s.service_date BETWEEN :from AND :to GROUP BY b.branch_id, b.name ORDER BY cnt DESC, b.name LIMIT :limit");
-            $stmt->bindParam(':from', $from);
-            $stmt->bindParam(':to', $to);
-            $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+            $limit = 5;
+            $stmt = $conn->prepare("
+                SELECT 
+                    b.branch_id, 
+                    b.name AS branch_name, 
+                    COUNT(s.service_id) AS service_count,
+                    MAX(s.service_date) AS last_service_date
+                FROM service s
+                JOIN branch b ON s.branch_id = b.branch_id
+                GROUP BY b.branch_id, b.name
+                ORDER BY service_count DESC, last_service_date DESC
+                LIMIT :limit
+            ");
+            $stmt->bindValue(':limit', (int)$limit, PDO::PARAM_INT); // ✅ force integer
             $stmt->execute();
             $byBranch = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+
+
             // Top technicians by services (service.user_id) - technicians only
             $techLimit = min(max((int)($data['tech_limit'] ?? $limit),1),200);
-            $stmt = $conn->prepare("SELECT u.user_id, u.username, u.profile_picture, COUNT(s.service_id) AS services_count FROM users u JOIN roles r ON u.role_id = r.role_id AND r.role_name = 'technician' LEFT JOIN service s ON s.user_id = u.user_id AND s.service_date BETWEEN :from AND :to GROUP BY u.user_id, u.username, u.profile_picture ORDER BY services_count DESC, u.username LIMIT :tlimit");
-            $stmt->bindParam(':from', $from);
-            $stmt->bindParam(':to', $to);
+            $stmt = $conn->prepare("
+                SELECT u.user_id, 
+                    u.username, 
+                    u.profile_picture, 
+                    COUNT(s.service_id) AS services_count
+                FROM users u
+                JOIN roles r ON u.role_id = r.role_id AND r.role_name = 'technician'
+                LEFT JOIN service s 
+                    ON s.user_id = u.user_id 
+                    AND s.service_date <= :to
+                GROUP BY u.user_id, u.username, u.profile_picture
+                ORDER BY services_count DESC, u.username
+                LIMIT :tlimit
+            ");
+            
+            $stmt->bindValue(':to', $to, PDO::PARAM_STR);   // service_date is DATE, bind as string
             $stmt->bindValue(':tlimit', $techLimit, PDO::PARAM_INT);
             $stmt->execute();
             $topTechnicians = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             // Timeline of services per day
-            $stmt = $conn->prepare("SELECT DATE(service_date) d, COUNT(*) c FROM service WHERE service_date BETWEEN :from AND :to GROUP BY d ORDER BY d");
+            $stmt = $conn->prepare("SELECT DATE(service_date) d, COUNT(*) c FROM service WHERE service_date::date BETWEEN :from AND :to GROUP BY d ORDER BY d");
             $stmt->execute([':from'=>$from, ':to'=>$to]);
             $timelineRows = $stmt->fetchAll(PDO::FETCH_ASSOC);
             $timelineMap = []; foreach($timelineRows as $r){ $timelineMap[$r['d']] = (int)$r['c']; }
@@ -527,9 +555,20 @@ class StatsApi extends ApiResourceBase {
 
             // Recent service records (detailed)
             $recentLimit = min(max((int)($data['recent_limit'] ?? 10),1),100);
-            $stmt = $conn->prepare("SELECT s.service_id, s.branch_id, b.name AS branch_name, b.address AS branch_address, s.client_id, c.name AS client_name, s.user_id AS technician_id, u.username AS technician_name, s.device_type, s.service_date, s.service_type, s.service_notes, s.teller_scanner_serial, s.chdm_serial FROM service s LEFT JOIN branch b ON s.branch_id = b.branch_id LEFT JOIN client c ON b.client_id = c.client_id LEFT JOIN users u ON s.user_id = u.user_id WHERE s.service_date BETWEEN :from AND :to ORDER BY s.service_date DESC LIMIT :rlimit");
-            $stmt->bindParam(':from', $from);
-            $stmt->bindParam(':to', $to);
+            $stmt = $conn->prepare("
+                SELECT s.service_id, s.branch_id, b.name AS branch_name, b.address AS branch_address, 
+                    s.client_id, c.name AS client_name, 
+                    s.user_id AS technician_id, u.username AS technician_name, 
+                    s.device_type, s.service_date, s.service_type, s.service_notes, 
+                    s.teller_scanner_serial, s.chdm_serial
+                FROM service s
+                LEFT JOIN branch b ON s.branch_id = b.branch_id
+                LEFT JOIN client c ON b.client_id = c.client_id
+                LEFT JOIN users u ON s.user_id = u.user_id
+                ORDER BY s.service_date DESC
+                LIMIT :rlimit
+            ");
+            
             $stmt->bindValue(':rlimit', $recentLimit, PDO::PARAM_INT);
             $stmt->execute();
             $recent = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -541,7 +580,7 @@ class StatsApi extends ApiResourceBase {
                 'breakdowns'=>[
                     'by_device'=>$byDevice,
                     'by_client'=>$byClient,
-                    'by_branch'=>$byBranch
+                    'by_branch_latest'=>$byBranch
                 ],
                 'top_technicians'=>$topTechnicians,
                 'timeline'=>['labels'=>$labels,'services'=>$servicePerDay],
