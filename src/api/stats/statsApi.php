@@ -418,7 +418,7 @@ class StatsApi extends ApiResourceBase {
         $conn = DatabaseConnection::getConnection();
 
     // Top users by services (service.user_id) - only users with role 'technician'
-    $stmt = $conn->prepare("SELECT u.user_id, u.username, COUNT(s.service_id) AS services_count FROM users u JOIN roles role ON u.role_id = role.role_id AND role.role_name = 'technician' LEFT JOIN service s ON s.user_id = u.user_id AND s.service_date BETWEEN :from AND :to GROUP BY u.user_id, u.username ORDER BY services_count DESC, u.username LIMIT :limit");
+    $stmt = $conn->prepare("SELECT u.user_id, u.username, u.profile_picture, COUNT(s.service_id) AS services_count FROM users u JOIN roles role ON u.role_id = role.role_id AND role.role_name = 'technician' LEFT JOIN service s ON s.user_id = u.user_id AND s.service_date BETWEEN :from AND :to GROUP BY u.user_id, u.username, u.profile_picture ORDER BY services_count DESC, u.username LIMIT :limit");
     $stmt->bindParam(':from', $from);
     $stmt->bindParam(':to', $to);
     $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
@@ -426,7 +426,7 @@ class StatsApi extends ApiResourceBase {
     $services = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     // Top users by repairs (repair.technician_id) - only users with role 'technician'
-    $stmt = $conn->prepare("SELECT u.user_id, u.username, COUNT(r.repair_id) AS repairs_count FROM users u JOIN roles role ON u.role_id = role.role_id AND role.role_name = 'technician' LEFT JOIN repair r ON r.technician_id = u.user_id AND r.start_time BETWEEN :from AND :to GROUP BY u.user_id, u.username ORDER BY repairs_count DESC, u.username LIMIT :limit");
+    $stmt = $conn->prepare("SELECT u.user_id, u.username, u.profile_picture, COUNT(r.repair_id) AS repairs_count FROM users u JOIN roles role ON u.role_id = role.role_id AND role.role_name = 'technician' LEFT JOIN repair r ON r.technician_id = u.user_id AND r.start_time BETWEEN :from AND :to GROUP BY u.user_id, u.username, u.profile_picture ORDER BY repairs_count DESC, u.username LIMIT :limit");
     $stmt->bindParam(':from', $from);
     $stmt->bindParam(':to', $to);
     $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
@@ -437,7 +437,7 @@ class StatsApi extends ApiResourceBase {
         // We count number of done_branches entries per user in range
         try {
             // Only technicians (done_clusters are recorded per technician user)
-            $doneStmt = $conn->prepare("SELECT u.user_id, u.username, SUM(json_array_length(dc.done_branches::json)) AS completed_branches FROM users u JOIN roles role ON u.role_id = role.role_id AND role.role_name = 'technician' LEFT JOIN done_clusters dc ON dc.user_id = u.user_id AND dc.done_at BETWEEN :from AND :to GROUP BY u.user_id, u.username ORDER BY completed_branches DESC NULLS LAST, u.username LIMIT :limit");
+            $doneStmt = $conn->prepare("SELECT u.user_id, u.username, u.profile_picture, SUM(json_array_length(dc.done_branches::json)) AS completed_branches FROM users u JOIN roles role ON u.role_id = role.role_id AND role.role_name = 'technician' LEFT JOIN done_clusters dc ON dc.user_id = u.user_id AND dc.done_at BETWEEN :from AND :to GROUP BY u.user_id, u.username, u.profile_picture ORDER BY completed_branches DESC NULLS LAST, u.username LIMIT :limit");
             $doneStmt->bindParam(':from', $from);
             $doneStmt->bindParam(':to', $to);
             $doneStmt->bindValue(':limit', $limit, PDO::PARAM_INT);
@@ -449,7 +449,7 @@ class StatsApi extends ApiResourceBase {
         }
 
     // Top QC officers by quality_check entries - only users with role 'Quality_Checker'
-    $stmt = $conn->prepare("SELECT u.user_id, u.username, COUNT(q.qc_id) AS qc_count FROM users u JOIN roles role ON u.role_id = role.role_id AND role.role_name = 'Quality_Checker' LEFT JOIN quality_check q ON q.qc_officer_id = u.user_id AND q.date BETWEEN :from AND :to GROUP BY u.user_id, u.username ORDER BY qc_count DESC, u.username LIMIT :limit");
+    $stmt = $conn->prepare("SELECT u.user_id, u.username, u.profile_picture, COUNT(q.qc_id) AS qc_count FROM users u JOIN roles role ON u.role_id = role.role_id AND role.role_name = 'Quality_Checker' LEFT JOIN quality_check q ON q.qc_officer_id = u.user_id AND q.date BETWEEN :from AND :to GROUP BY u.user_id, u.username, u.profile_picture ORDER BY qc_count DESC, u.username LIMIT :limit");
     $stmt->bindParam(':from', $from);
     $stmt->bindParam(':to', $to);
     $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
