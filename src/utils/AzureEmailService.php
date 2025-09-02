@@ -175,6 +175,60 @@ HTML;
 HTML;
     }
 
+    /** Build HTML for password reset verification code email. */
+    private static function buildPasswordResetHtml(string $verificationCode, string $username = ''): string
+    {
+        $year = date('Y');
+        $codeEsc = htmlspecialchars($verificationCode, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $usernameEsc = htmlspecialchars($username, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        
+        $greeting = !empty($username) ? "Hey {$usernameEsc}," : "Hey there,";
+        
+        // Split verification code digits for individual styling
+        $codeDigits = str_split($codeEsc);
+        $styledDigits = '';
+        foreach ($codeDigits as $digit) {
+            $styledDigits .= '<span style="color: #d63384; font-weight: bold; margin: 0 8px;">' . $digit . '</span>';
+        }
+        
+        return <<<HTML
+<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f0f0f0; padding: 40px 20px;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 500px; margin: auto; background: #fff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
+    <!-- Header with logo and branding -->
+    <tr>
+      <td style="background: #cec31eff; padding: 24px; text-align: center;">
+        <div style="display: inline-flex; align-items: center; justify-content: center; gap: 12px;">
+          <img src="https://sahqlmlmflamaghbwkin.supabase.co/storage/v1/object/public/images/faviccon.ico" alt="Fixpoint Logo" style="width: 40px; height: 40px; vertical-align: middle; padding-right: 8px;" />
+          <h1 style="color: #333333; margin: 0; font-size: 24px; font-weight: 600;">FixPoint<sup style="font-size: 14px;">®</sup></h1>
+        </div>
+      </td>
+    </tr>
+    <!-- Main content -->
+    <tr>
+      <td style="padding: 40px 40px 20px 40px; text-align: center;">
+        <h2 style="color: #333; margin: 0 0 24px 0; font-size: 28px; font-weight: 400;">Password Reset</h2>
+        <p style="color: #666; font-size: 16px; margin: 0 0 8px 0; text-align: left;">{$greeting}</p>
+        <p style="color: #666; font-size: 14px; margin: 0 0 32px 0; line-height: 1.5;">You've requested to reset your password. Use the following verification code to proceed. This code is valid for <strong>15 minutes</strong>. Do not share this code with others.</p>
+        
+        <!-- Verification Code Display -->
+        <div style="margin: 32px 0; font-size: 48px; font-weight: bold; letter-spacing: 12px; line-height: 1;">
+          {$styledDigits}
+        </div>
+        
+        <p style="color: #999; font-size: 12px; margin-top: 40px;">If you did not request this password reset, please ignore this email.</p>
+      </td>
+    </tr>
+    <!-- Footer -->
+    <tr>
+      <td style="padding: 20px 40px 30px 40px; text-align: center; color: #aaa; font-size: 11px; border-top: 1px solid #f0f0f0;">
+        &copy; {$year} Fixpoint Concepts. All rights reserved.
+      </td>
+    </tr>
+  </table>
+</div>
+HTML;
+    }
+
     /** Public: Send OTP email. Returns operation info array. */
     public static function sendOtpEmail(string $recipient, string $otp, string $username = ''): array
     {
@@ -190,6 +244,15 @@ HTML;
         $html = self::buildDefaultPasswordHtml($password);
         $plain = "Your default password is: {$password}. Please change it after your first login.";
         return self::sendEmail([$recipient], 'Your Default Password', $plain, $html);
+    }
+
+    /** Public: Send password reset email with verification code. */
+    public static function sendPasswordResetEmail(string $recipient, string $verificationCode, string $username = ''): array
+    {
+        $html = self::buildPasswordResetHtml($verificationCode, $username);
+        $greeting = !empty($username) ? "Hey {$username}," : "Hey there,";
+        $plain = "{$greeting}\n\nYou've requested to reset your password. Use the following verification code to proceed. This code is valid for 15 minutes. Do not share this code with others.\n\nVerification Code: {$verificationCode}\n\nIf you did not request this password reset, please ignore this email.\n\n© Fixpoint Concepts. All rights reserved.";
+        return self::sendEmail([$recipient], 'Password Reset Code', $plain, $html);
     }
 
     /** Public: Send virtual support link email. */
