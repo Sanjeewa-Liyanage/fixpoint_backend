@@ -1,0 +1,46 @@
+{
+    "url": "http://localhost/branch/backup_assignment/get_active_assignments",
+    "method": "POST",
+    "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer YOUR_ADMIN_TOKEN_HERE"
+    },
+    "body": {},
+    "description": "Test retrieving all active backup assignments (where received_date is null)",
+    "expected_response": {
+        "message": "Active backup assignments retrieved successfully",
+        "status": "success",
+        "data": [
+            {
+                "assignment_id": 1,
+                "backup_id": 1,
+                "repair_id": 1,
+                "location": 2,
+                "sent_date": "2025-01-15",
+                "received_date": null,
+                "serial_no": "BM001",
+                "model": "Dell PowerEdge R440",
+                "backup_status": "in_use",
+                "device_type": "ATM",
+                "device_id": "ATM001",
+                "branch_id": 2,
+                "technician_id": 3,
+                "start_time": "2025-01-15 10:00:00",
+                "end_time": null,
+                "repair_status": "in_progress",
+                "summary": null,
+                "virtual_support_link": null,
+                "backup_sent": false,
+                "visit_required": true,
+                "technician_name": "John Doe",
+                "branch_name": "Main Branch",
+                "location_name": "Main Branch"
+            }
+        ]
+    },
+    "notes": [
+        "Admin or technician token can be used for authorization",
+        "Returns assignments where received_date is null (backup not yet returned)",
+        "Includes all related details from backup_machine, repair, and branch tables"
+    ]
+}

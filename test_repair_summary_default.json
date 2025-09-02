@@ -1,0 +1,37 @@
+{
+    "url": "http://localhost/stats/stats/repair_summary",
+    "method": "POST",
+    "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer YOUR_ADMIN_TOKEN_HERE"
+    },
+    "body": {},
+    "description": "Test retrieving repair summary with default parameters (last 30 days)",
+    "expected_response": {
+        "status": "success",
+        "range": {
+            "from": "2025-08-02",
+            "to": "2025-09-01"
+        },
+        "totals": {
+            "total_repairs": 25,
+            "pending_repairs": 5,
+            "in_progress_repairs": 8,
+            "completed_repairs": 10,
+            "other_status": 2
+        },
+        "virtual_support_sessions": 12,
+        "backup_stats": {
+            "backup_sent": 7,
+            "visit_required": 15
+        },
+        "kpis": {
+            "avg_repair_hours": 4.5
+        }
+    },
+    "notes": [
+        "This test uses default parameters (last 30 days)",
+        "Date range will be calculated automatically based on current date",
+        "All other fields same as detailed test above"
+    ]
+}

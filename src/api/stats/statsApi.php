@@ -14,7 +14,8 @@ class StatsApi extends ApiResourceBase {
             'chdm_summary' => ['admin','technician'],
             'user_engagement' => ['admin','technician','Quality_Checker'],
             'service_stats' => ['admin','technician'],
-            'qc_summary' => ['admin','technician']
+            'qc_summary' => ['admin','technician'],
+            'repair_summary' => ['admin','technician']
         ]);
     }
 
@@ -472,6 +473,124 @@ class StatsApi extends ApiResourceBase {
             ];
         } catch(Exception $e){
             return ['status'=>'error','message'=>'QC stats error: '.$e->getMessage()];
+        }
+    }
+
+    /** Repair summary stats */
+    public function repair_summary($data) {
+        $user = $this->getAuthenticatedUser();
+        if(!$user) return ['status'=>'error','message'=>'Invalid authentication token'];
+        if(!$this->checkRoles($user['role_name'], 'repair_summary')) return ['status'=>'error','message'=>'Unauthorized'];
+
+        [$from,$to] = $this->resolveDateRange($data, 30); // default last 30 days
+        $conn = DatabaseConnection::getConnection();
+        $out = [];
+        try {
+            // Core repair counts
+            $stmt = $conn->prepare("SELECT
+                COUNT(*) AS total_repairs,
+                SUM(CASE WHEN status='pending' THEN 1 ELSE 0 END) AS pending_repairs,
+                SUM(CASE WHEN status='in_progress' THEN 1 ELSE 0 END) AS in_progress_repairs,
+                SUM(CASE WHEN status IN ('completed','closed') THEN 1 ELSE 0 END) AS completed_repairs,
+                SUM(CASE WHEN status NOT IN ('pending','in_progress','completed','closed') OR status IS NULL THEN 1 ELSE 0 END) AS other_status
+                FROM repair WHERE start_time BETWEEN :from AND :to");
+            $stmt->execute([':from'=>$from, ':to'=>$to]);
+            $out['totals'] = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+
+            // Virtual support usage
+            $stmt = $conn->prepare("SELECT COUNT(*) FROM repair WHERE virtual_support_link IS NOT NULL AND start_time BETWEEN :from AND :to");
+            $stmt->execute([':from'=>$from, ':to'=>$to]);
+            $out['virtual_support_sessions'] = (int)$stmt->fetchColumn();
+
+            // Backup sent statistics
+            $stmt = $conn->prepare("SELECT
+                SUM(CASE WHEN backup_sent = 'true' THEN 1 ELSE 0 END) AS backup_sent_count,
+                SUM(CASE WHEN visit_required = 'true' THEN 1 ELSE 0 END) AS visit_required_count
+                FROM repair WHERE start_time BETWEEN :from AND :to");
+            $stmt->execute([':from'=>$from, ':to'=>$to]);
+            $backupStats = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+            $out['backup_stats'] = [
+                'backup_sent' => (int)($backupStats['backup_sent_count'] ?? 0),
+                'visit_required' => (int)($backupStats['visit_required_count'] ?? 0)
+            ];
+
+            // Average repair time (MTTR) for completed repairs
+            $stmt = $conn->prepare("SELECT AVG(EXTRACT(EPOCH FROM (end_time - start_time))/3600.0)
+                FROM repair
+                WHERE end_time IS NOT NULL AND start_time IS NOT NULL
+                    AND status IN ('completed','closed')
+                    AND start_time BETWEEN :from AND :to");
+            $stmt->execute([':from'=>$from, ':to'=>$to]);
+            $avgHours = $stmt->fetchColumn();
+            $out['kpis']['avg_repair_hours'] = $avgHours !== null ? round((float)$avgHours,2) : 0.0;
+
+            // Repairs by device type
+            $stmt = $conn->prepare("SELECT COALESCE(device_type,'unknown') AS device_type, COUNT(*) AS count
+                FROM repair WHERE start_time BETWEEN :from AND :to GROUP BY device_type ORDER BY count DESC LIMIT 10");
+            $stmt->execute([':from'=>$from, ':to'=>$to]);
+            $out['repairs_by_device_type'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // Repairs by technician
+            $stmt = $conn->prepare("SELECT u.username AS technician_name, COUNT(r.repair_id) AS repair_count
+                FROM repair r
+                LEFT JOIN users u ON r.technician_id = u.user_id
+                WHERE r.start_time BETWEEN :from AND :to
+                GROUP BY u.username ORDER BY repair_count DESC LIMIT 10");
+            $stmt->execute([':from'=>$from, ':to'=>$to]);
+            $out['repairs_by_technician'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // Repairs by branch
+            $stmt = $conn->prepare("SELECT b.name AS branch_name, COUNT(r.repair_id) AS repair_count
+                FROM repair r
+                LEFT JOIN branch b ON r.branch_id = b.branch_id
+                WHERE r.start_time BETWEEN :from AND :to
+                GROUP BY b.name ORDER BY repair_count DESC LIMIT 10");
+            $stmt->execute([':from'=>$from, ':to'=>$to]);
+            $out['repairs_by_branch'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // Latest repairs with details
+            $latest_limit = min(max((int)($data['latest_limit'] ?? 5),1),50);
+            $stmt = $conn->prepare("SELECT r.repair_id, r.device_type, r.device_id, r.start_time, r.end_time, r.status,
+                r.summary, r.virtual_support_link, r.backup_sent, r.visit_required,
+                u.username AS technician_name, b.name AS branch_name
+                FROM repair r
+                LEFT JOIN users u ON r.technician_id = u.user_id
+                LEFT JOIN branch b ON r.branch_id = b.branch_id
+                WHERE r.start_time BETWEEN :from AND :to
+                ORDER BY r.start_time DESC LIMIT :llimit");
+            $stmt->bindParam(':from', $from);
+            $stmt->bindParam(':to', $to);
+            $stmt->bindValue(':llimit', $latest_limit, PDO::PARAM_INT);
+            $stmt->execute();
+            $out['latest_repairs'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // Status timeline (daily counts)
+            $stmt = $conn->prepare("SELECT DATE(start_time) d, COUNT(*) c FROM repair
+                WHERE start_time BETWEEN :from AND :to GROUP BY d ORDER BY d");
+            $stmt->execute([':from'=>$from, ':to'=>$to]);
+            $timelineRows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $timelineMap = [];
+            foreach($timelineRows as $r){ $timelineMap[$r['d']] = (int)$r['c']; }
+            $labels = $this->dateSeries($from,$to);
+            $repairsPerDay = [];
+            foreach($labels as $d){ $repairsPerDay[] = $timelineMap[$d] ?? 0; }
+            $out['timeline'] = ['labels'=>$labels,'repairs_created'=>$repairsPerDay];
+
+            return [
+                'status'=>'success',
+                'range'=>['from'=>$from,'to'=>$to],
+                'totals'=>$out['totals'],
+                'virtual_support_sessions'=>$out['virtual_support_sessions'],
+                'backup_stats'=>$out['backup_stats'],
+                'kpis'=>$out['kpis'],
+                'repairs_by_device_type'=>$out['repairs_by_device_type'],
+                'repairs_by_technician'=>$out['repairs_by_technician'],
+                'repairs_by_branch'=>$out['repairs_by_branch'],
+                'latest_repairs'=>$out['latest_repairs'],
+                'timeline'=>$out['timeline']
+            ];
+        } catch(Exception $e){
+            return ['status'=>'error','message'=>'Repair stats error: '.$e->getMessage()];
         }
     }
 

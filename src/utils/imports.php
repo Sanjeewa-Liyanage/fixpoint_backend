@@ -31,7 +31,8 @@ require_once 'src/classes/Client.php';
 
 require_once 'src/classes/ClusterTechnician.php';
 require_once 'src/classes/Notification.php';
-
+require_once 'src/classes/BackupMachine.php';
+require_once 'src/classes/BackupAssignment.php';
 
 // Common APIs
 require_once 'src/api/auth/roleApi.php';
@@ -47,6 +48,7 @@ require_once 'src/api/Service_Reporting/Service_ReportingApi.php';
 // Dev Branch APIs
 require_once 'src/api/routine/routineApi.php';
 require_once 'src/api/branch/branchApi.php';
+require_once 'src/api/backup/BackupAssignmentApi.php';
 require_once 'src/api/repair/repairApi.php';
 
 require_once 'src/api/Inventory_Item/Inventory_ItemApi.php';
@@ -59,6 +61,7 @@ require_once 'src/api/Dispatch/dispatchApi.php';
 
 require_once 'src/api/client/ClientApi.php';
 require_once 'src/api/notification/notificationApi.php';
+require_once 'src/api/backup/BackupMachineApi.php';
 
 
 require_once 'src/api/chdm/chdmApi.php';
