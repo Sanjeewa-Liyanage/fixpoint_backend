@@ -15,7 +15,8 @@ class StatsApi extends ApiResourceBase {
             'user_engagement' => ['admin','technician','Quality_Checker'],
             'service_stats' => ['admin','technician'],
             'qc_summary' => ['admin','technician'],
-            'repair_summary' => ['admin','technician']
+            'repair_summary' => ['admin','technician'],
+            'inventory_stock_summary' => ['admin','technician']
         ]);
     }
 
@@ -548,6 +549,16 @@ class StatsApi extends ApiResourceBase {
             $stmt->execute([':from'=>$from, ':to'=>$to]);
             $out['repairs_by_branch'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+            // Repairs by client
+            $stmt = $conn->prepare("SELECT c.name AS client_name, COUNT(r.repair_id) AS repair_count
+                FROM repair r
+                LEFT JOIN branch b ON r.branch_id = b.branch_id
+                LEFT JOIN client c ON b.client_id = c.client_id
+                WHERE r.start_time BETWEEN :from AND :to
+                GROUP BY c.name ORDER BY repair_count DESC LIMIT 10");
+            $stmt->execute([':from'=>$from, ':to'=>$to]);
+            $out['repairs_by_client'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
             // Latest repairs with details
             $latest_limit = min(max((int)($data['latest_limit'] ?? 5),1),50);
             $stmt = $conn->prepare("SELECT r.repair_id, r.device_type, r.device_id, r.start_time, r.end_time, r.status,
@@ -586,11 +597,103 @@ class StatsApi extends ApiResourceBase {
                 'repairs_by_device_type'=>$out['repairs_by_device_type'],
                 'repairs_by_technician'=>$out['repairs_by_technician'],
                 'repairs_by_branch'=>$out['repairs_by_branch'],
+                'repairs_by_client'=>$out['repairs_by_client'],
                 'latest_repairs'=>$out['latest_repairs'],
                 'timeline'=>$out['timeline']
             ];
         } catch(Exception $e){
             return ['status'=>'error','message'=>'Repair stats error: '.$e->getMessage()];
+        }
+    }
+
+    /** Inventory Stock summary stats */
+    public function inventory_stock_summary($data) {
+        $user = $this->getAuthenticatedUser();
+        if(!$user) return ['status'=>'error','message'=>'Invalid authentication token'];
+        if(!$this->checkRoles($user['role_name'], 'inventory_stock_summary')) return ['status'=>'error','message'=>'Unauthorized'];
+
+        $conn = DatabaseConnection::getConnection();
+        $out = [];
+        try {
+            // Total stock items and locations
+            $stmt = $conn->query("SELECT 
+                COUNT(*) AS total_stock_items,
+                COUNT(DISTINCT location) AS total_locations,
+                COUNT(DISTINCT item_id) AS unique_items
+                FROM stock");
+            $out['totals'] = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+
+            // Low stock items (quantity <= min_threshold)
+            $stmt = $conn->query("SELECT COUNT(*) FROM stock WHERE quantity <= min_threshold");
+            $out['low_stock_count'] = (int)$stmt->fetchColumn();
+
+            // Out of stock items (quantity = 0)
+            $stmt = $conn->query("SELECT COUNT(*) FROM stock WHERE quantity = 0");
+            $out['out_of_stock_count'] = (int)$stmt->fetchColumn();
+
+            // Stock value by location (top 10)
+            $stmt = $conn->query("SELECT location, 
+                COUNT(*) AS item_count,
+                SUM(quantity) AS total_quantity
+                FROM stock 
+                GROUP BY location 
+                ORDER BY total_quantity DESC 
+                LIMIT 10");
+            $out['stock_by_location'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // Items below threshold with details
+            $limit = min(max((int)($data['threshold_limit'] ?? 10),1),50);
+            $stmt = $conn->prepare("SELECT s.stock_id, s.item_id, i.item_name, i.category,
+                s.quantity, s.min_threshold, s.location,
+                (s.min_threshold - s.quantity) AS shortage
+                FROM stock s
+                LEFT JOIN inventory_item i ON s.item_id = i.item_id
+                WHERE s.quantity <= s.min_threshold
+                ORDER BY shortage DESC
+                LIMIT :limit");
+            $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+            $stmt->execute();
+            $out['items_below_threshold'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // Stock by category
+            $stmt = $conn->query("SELECT COALESCE(i.category, 'Unknown') AS category,
+                COUNT(s.stock_id) AS item_count,
+                SUM(s.quantity) AS total_quantity
+                FROM stock s
+                LEFT JOIN inventory_item i ON s.item_id = i.item_id
+                GROUP BY i.category
+                ORDER BY total_quantity DESC");
+            $out['stock_by_category'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // Recent stock updates (last 30 days)
+            $stmt = $conn->query("SELECT COUNT(*) FROM stock 
+                WHERE last_updated >= NOW() - INTERVAL '30 days'");
+            $out['recent_updates_30d'] = (int)$stmt->fetchColumn();
+
+            // Stock health metrics
+            $totalItems = (int)$out['totals']['total_stock_items'];
+            $lowStockCount = $out['low_stock_count'];
+            $outOfStockCount = $out['out_of_stock_count'];
+            
+            $out['kpis'] = [
+                'low_stock_percentage' => $totalItems ? round(($lowStockCount / $totalItems) * 100, 2) : 0,
+                'out_of_stock_percentage' => $totalItems ? round(($outOfStockCount / $totalItems) * 100, 2) : 0,
+                'stock_health_score' => $totalItems ? round(((($totalItems - $lowStockCount) / $totalItems) * 100), 2) : 0
+            ];
+
+            return [
+                'status'=>'success',
+                'totals'=>$out['totals'],
+                'low_stock_count'=>$out['low_stock_count'],
+                'out_of_stock_count'=>$out['out_of_stock_count'],
+                'recent_updates_30d'=>$out['recent_updates_30d'],
+                'stock_by_location'=>$out['stock_by_location'],
+                'stock_by_category'=>$out['stock_by_category'],
+                'items_below_threshold'=>$out['items_below_threshold'],
+                'kpis'=>$out['kpis']
+            ];
+        } catch(Exception $e){
+            return ['status'=>'error','message'=>'Inventory stock stats error: '.$e->getMessage()];
         }
     }
 
