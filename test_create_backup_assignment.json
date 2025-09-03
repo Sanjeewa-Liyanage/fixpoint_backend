@@ -1,0 +1,34 @@
+{
+    "url": "http://localhost/branch/backup_assignment/create_backup_assignment",
+    "method": "POST",
+    "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer YOUR_ADMIN_TOKEN_HERE"
+    },
+    "body": {
+        "backup_id": 1,
+        "repair_id": 1,
+        "location": 2,
+        "sent_date": "2025-01-15",
+        "received_date": null
+    },
+    "description": "Test creating a new backup assignment",
+    "expected_response": {
+        "message": "Backup assignment created successfully",
+        "status": "success",
+        "data": {
+            "assignment_id": 1,
+            "backup_id": 1,
+            "repair_id": 1,
+            "location": 2,
+            "sent_date": "2025-01-15",
+            "received_date": null
+        }
+    },
+    "notes": [
+        "Admin or technician token is required for authorization",
+        "Location can be 0 (office) or a valid branch_id",
+        "sent_date and received_date are optional",
+        "backup_id and repair_id must exist in their respective tables"
+    ]
+}

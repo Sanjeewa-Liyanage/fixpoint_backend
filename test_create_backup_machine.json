@@ -1,0 +1,30 @@
+{
+    "url": "http://localhost/backup/backup_machine/create_backup_machine",
+    "method": "POST",
+    "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer YOUR_ADMIN_TOKEN_HERE"
+    },
+    "body": {
+        "serial_no": "BM001",
+        "model": "Dell PowerEdge R440",
+        "status": "available"
+    },
+    "description": "Test creating a new backup machine",
+    "expected_response": {
+        "message": "Backup machine created successfully",
+        "status": "success",
+        "data": {
+            "backup_id": 1,
+            "serial_no": "BM001",
+            "model": "Dell PowerEdge R440",
+            "status": "available"
+        }
+    },
+    "notes": [
+        "Admin token is required for authorization",
+        "Status must be one of: available, in_use, maintenance, retired",
+        "Serial number should be unique",
+        "backup_id is auto-generated"
+    ]
+}
