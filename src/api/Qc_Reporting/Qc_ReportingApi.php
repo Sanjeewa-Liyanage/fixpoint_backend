@@ -60,6 +60,18 @@ class Qc_ReportingApi extends ApiResourceBase {
             ];
         }
 
+        // Check if a report already exists for this chdm_id
+        $conn = DatabaseConnection::getConnection();
+        $stmt = $conn->prepare("SELECT qc_id FROM quality_check WHERE chdm_id = :chdm_id");
+        $stmt->bindParam(':chdm_id', $chdm_id);
+        $stmt->execute();
+        if ($stmt->fetch(PDO::FETCH_ASSOC)) {
+            return [
+                'status'=> 'error',
+                'message'=> 'A report already exists for this serial number.'
+            ];
+        }
+
         // Debug: Log user array structure (remove this after testing)
         error_log("User array structure: " . print_r($user, true));
 
@@ -229,14 +241,27 @@ public function update_test_details($data) {
             "message"=> "Unauthorized: Admin or Quality Checker access required",
             "status"=> "error"
         ];
-}
-$missing = $this->validateFields($data, ["serial_no", "test_details"]);
-
+    }
+    $missing = $this->validateFields($data, ["serial_no", "test_details"]);
     if(!empty($missing)){
         return [
             "message"=> "Missing fields: ". implode(", ", $missing),
             "status"=> "error"
         ];
+    }
+
+    // Optionally allow updating result if provided
+    $updateResult = false;
+    $resultValue = null;
+    if (isset($data['result'])) {
+        if(!in_array(strtolower($data['result']), ['passed', 'failed'])){
+            return [
+                'status'=> 'error',
+                'message'=> 'Result must be either "Passed" or "Failed"'
+            ];
+        }
+        $updateResult = true;
+        $resultValue = ucfirst(strtolower($data['result']));
     }
 
     // Get chdm_id by serial number
@@ -249,12 +274,31 @@ $missing = $this->validateFields($data, ["serial_no", "test_details"]);
         ];
     }
 
-    $qcReporting = new Qc_Reporting(null, $chdm_id, null, null, null, null, $data['test_details']);
-    $success = $qcReporting->update_test_details($data['test_details']);
+    // Get today's date in Sri Lankan time zone
+    $dt = new DateTime('now', new DateTimeZone('Asia/Colombo'));
+    $today = $dt->format('Y-m-d');
+
+    // Update test_details, result (if provided), and date
+    $conn = DatabaseConnection::getConnection();
+    $fields = "test_details = :test_details, date = :date";
+    if ($updateResult) {
+        $fields .= ", result = :result";
+    }
+    $sql = "UPDATE quality_check SET $fields WHERE chdm_id = :chdm_id";
+    $stmt = $conn->prepare($sql);
+    $stmt->bindParam(':test_details', $data['test_details']);
+    $stmt->bindParam(':date', $today);
+    if ($updateResult) {
+        $stmt->bindParam(':result', $resultValue);
+    }
+    $stmt->bindParam(':chdm_id', $chdm_id);
+    $success = $stmt->execute();
+
     if($success){
         return [
             "status"=> "success",
-            "message"=> "Test details updated successfully"
+            "message"=> "Test details updated successfully",
+            "date_updated" => $today
         ];
     } else {
         return [
