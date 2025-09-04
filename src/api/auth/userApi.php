@@ -34,7 +34,16 @@ class UserApi extends ApiResourceBase{
     $result = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if ($result) {
-        if ($data['password'] === $result['password']) {
+        // Check if password is hashed (starts with $2y$ for bcrypt)
+        if (password_get_info($result['password'])['algo'] !== null) {
+            // Password is hashed, use password_verify
+            $passwordValid = password_verify($data['password'], $result['password']);
+        } else {
+            // Password is plain text (legacy), compare directly
+            $passwordValid = ($data['password'] === $result['password']);
+        }
+
+        if ($passwordValid) {
             $sql = 'SELECT * FROM roles WHERE role_id = :role_id';
             $stmt = $conn->prepare($sql);
             $stmt->bindValue(':role_id', $result['role_id']);
@@ -374,10 +383,13 @@ class UserApi extends ApiResourceBase{
             ];
         }
 
-        // Update user password
+        // Hash the new password using PHP's password_hash function
+        $hashedPassword = password_hash($data['new_password'], PASSWORD_DEFAULT);
+
+        // Update user password with hashed password
         $sql = 'UPDATE users SET password = :new_password WHERE user_id = :user_id';
         $stmt = $conn->prepare($sql);
-        $stmt->bindValue(':new_password', $data['new_password']);
+        $stmt->bindValue(':new_password', $hashedPassword);
         $stmt->bindValue(':user_id', $user['user_id']);
         
         if ($stmt->execute()) {
