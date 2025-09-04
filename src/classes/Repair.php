@@ -47,18 +47,38 @@ return $success;
 
 }
 
-public function read(){
+public function read($page = 1, $limit = 10){
   $conn = DatabaseConnection::getConnection();
+  
+  // Calculate offset
+  $offset = ($page - 1) * $limit;
+  
+  // Get total count
+  $countSql = "SELECT COUNT(*) as total FROM repair r";
+  $countStmt = $conn->prepare($countSql);
+  $countStmt->execute();
+  $totalCount = $countStmt->fetch(PDO::FETCH_ASSOC)['total'];
+  
+  // Get paginated results
   $sql = "SELECT r.*, u.username as technician_name, b.name as branch_name 
           FROM repair r 
           LEFT JOIN users u ON r.technician_id = u.user_id 
           LEFT JOIN branch b ON r.branch_id = b.branch_id 
-          ORDER BY r.repair_id DESC";
+          ORDER BY r.repair_id DESC
+          LIMIT :limit OFFSET :offset";
   $stmt = $conn->prepare($sql);
+  $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
+  $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
   $stmt->execute();
   $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
   
-  return $results;
+  return [
+    'data' => $results,
+    'total' => $totalCount,
+    'page' => $page,
+    'limit' => $limit,
+    'total_pages' => ceil($totalCount / $limit)
+  ];
 }
 
 public function readAll(){

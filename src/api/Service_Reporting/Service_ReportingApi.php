@@ -294,20 +294,50 @@ public function update_service_reports($data) {
             ];
         }
 
-        $results = Service_Reporting::readAllWithDetails();
+        // Get pagination parameters with defaults
+        $page = isset($data['page']) ? max(1, intval($data['page'])) : 1;
+        $limit = isset($data['limit']) ? max(1, min(100, intval($data['limit']))) : 10;
 
-        if ($results !== false) {
-            if (empty($results)) {
+        $result = Service_Reporting::readAllWithDetails($page, $limit);
+
+        if ($result !== false) {
+            if (empty($result['data'])) {
                 return [
-                    "message" => "No service reports found",
                     "status" => "success",
-                    "data" => []
+                    "data" => [],
+                    "count" => 0,
+                    "total" => $result['total'],
+                    "page" => $result['page'],
+                    "limit" => $result['limit'],
+                    "total_pages" => $result['total_pages'],
+                    "message" => "No service reports found",
+                    "pagination" => [
+                        "current_page" => $result['page'],
+                        "per_page" => $result['limit'],
+                        "total" => $result['total'],
+                        "total_pages" => $result['total_pages'],
+                        "has_next" => false,
+                        "has_prev" => false
+                    ]
                 ];
             }
             return [
                 "status" => "success",
                 "message" => "Service reports retrieved successfully",
-                "data" => $results
+                "data" => $result['data'],
+                "count" => count($result['data']),
+                "total" => $result['total'],
+                "page" => $result['page'],
+                "limit" => $result['limit'],
+                "total_pages" => $result['total_pages'],
+                "pagination" => [
+                    "current_page" => $result['page'],
+                    "per_page" => $result['limit'],
+                    "total" => $result['total'],
+                    "total_pages" => $result['total_pages'],
+                    "has_next" => $result['page'] < $result['total_pages'],
+                    "has_prev" => $result['page'] > 1
+                ]
             ];
         } else {
             return [

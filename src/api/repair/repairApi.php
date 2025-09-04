@@ -112,21 +112,49 @@ class RepairApi extends ApiResourceBase {
             ];
         }
 
-        $repair = new Repair();
-        $results = $repair->read();
+        // Get pagination parameters with defaults
+        $page = isset($data['page']) ? max(1, intval($data['page'])) : 1;
+        $limit = isset($data['limit']) ? max(1, min(100, intval($data['limit']))) : 10;
 
-        if ($results && count($results) > 0) {
+        $repair = new Repair();
+        $result = $repair->read($page, $limit);
+
+        if ($result['data'] && count($result['data']) > 0) {
             return [
                 "status" => "success",
-                "data" => $results,
-                "count" => count($results)
+                "data" => $result['data'],
+                "count" => count($result['data']),
+                "total" => $result['total'],
+                "page" => $result['page'],
+                "limit" => $result['limit'],
+                "total_pages" => $result['total_pages'],
+                "pagination" => [
+                    "current_page" => $result['page'],
+                    "per_page" => $result['limit'],
+                    "total" => $result['total'],
+                    "total_pages" => $result['total_pages'],
+                    "has_next" => $result['page'] < $result['total_pages'],
+                    "has_prev" => $result['page'] > 1
+                ]
             ];
         } else {
             return [
                 "status" => "success",
                 "data" => [],
                 "count" => 0,
-                "message" => "No repair records found."
+                "total" => $result['total'],
+                "page" => $result['page'],
+                "limit" => $result['limit'],
+                "total_pages" => $result['total_pages'],
+                "message" => "No repair records found.",
+                "pagination" => [
+                    "current_page" => $result['page'],
+                    "per_page" => $result['limit'],
+                    "total" => $result['total'],
+                    "total_pages" => $result['total_pages'],
+                    "has_next" => false,
+                    "has_prev" => false
+                ]
             ];
         }
     }
