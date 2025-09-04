@@ -171,10 +171,16 @@ class RoutineApi extends ApiResourceBase{
             return ['status' => 'error', 'message' => 'Unauthorized'];
         }
 
-        $routines = Routine::getAllRoutines();
+        // Extract pagination parameters with defaults
+        $page = isset($data['page']) ? max(1, intval($data['page'])) : 1;
+        $limit = isset($data['limit']) ? max(1, min(100, intval($data['limit']))) : 10; // Cap at 100 items per page
+
+        $result = Routine::getAllRoutines($page, $limit);
+        
         return [
             'status' => 'success',
-            'routines' => $routines
+            'routines' => $result['routines'],
+            'pagination' => $result['pagination']
         ];
     }
     public function delete($data) {
@@ -301,19 +307,16 @@ class RoutineApi extends ApiResourceBase{
             return ['status' => 'error', 'message' => 'Missing: ' . implode(', ', $missing)];
         }
 
-        $clusters = ClusterTechnician::getClustersByTechnician($data['user_id']);
-        
-        if ($clusters === false) {
-            return [
-                'status' => 'success', 
-                'message' => 'No clusters found for this technician',
-                'clusters' => []
-            ];
-        }
+        // Extract pagination parameters with defaults
+        $page = isset($data['page']) ? max(1, intval($data['page'])) : 1;
+        $limit = isset($data['limit']) ? max(1, min(100, intval($data['limit']))) : 10; // Cap at 100 items per page
 
+        $result = ClusterTechnician::getClustersByTechnician($data['user_id'], $page, $limit);
+        
         return [
             'status' => 'success',
-            'clusters' => $clusters
+            'clusters' => $result['clusters'],
+            'pagination' => $result['pagination']
         ];
     }
 }

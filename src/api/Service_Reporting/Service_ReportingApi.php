@@ -556,7 +556,7 @@ public function update_service_reports($data) {
 
     /**
      * Get completed branches for a technician
-     * @param array $data Should contain user_id (optional) and cluster_id (optional)
+     * @param array $data Should contain user_id (optional), cluster_id (optional), page (optional), limit (optional)
      * @return array API response
      */
     public function get_done_branches($data) {
@@ -605,7 +605,7 @@ public function update_service_reports($data) {
         }
         
         if ($clusterId) {
-            // Get done branches for specific cluster
+            // Get done branches for specific cluster (no pagination needed for single cluster)
             $doneBranchesResult = ClusterTechnician::getDoneBranches($clusterId, $userId);
             
             if ($doneBranchesResult === false) {
@@ -642,8 +642,11 @@ public function update_service_reports($data) {
                 ]
             ];
         } else {
-            // Get all done branches for user across all clusters
-            $allDoneBranchesResult = ClusterTechnician::getAllDoneBranchesByUser($userId);
+            // Get all done branches for user across all clusters with pagination
+            $page = isset($data['page']) ? max(1, intval($data['page'])) : 1;
+            $limit = isset($data['limit']) ? max(1, min(100, intval($data['limit']))) : 10; // Cap at 100 items per page
+            
+            $allDoneBranchesResult = ClusterTechnician::getAllDoneBranchesByUser($userId, $page, $limit);
             
             if ($allDoneBranchesResult === false) {
                 return [
@@ -652,7 +655,7 @@ public function update_service_reports($data) {
                 ];
             }
             
-            if (empty($allDoneBranchesResult)) {
+            if (empty($allDoneBranchesResult['clusters'])) {
                 return [
                     'status' => 'success',
                     'message' => 'No completed branches found',
@@ -661,11 +664,12 @@ public function update_service_reports($data) {
                         'total_clusters_with_completions' => 0,
                         'total_branches_completed' => 0,
                         'clusters' => []
-                    ]
+                    ],
+                    'pagination' => $allDoneBranchesResult['pagination']
                 ];
             }
             
-            // Calculate totals
+            // Calculate totals for the current page
             $clusters = $allDoneBranchesResult['clusters'];
             $totalClusters = count($clusters);
             $totalBranches = 0;
@@ -683,7 +687,8 @@ public function update_service_reports($data) {
                     'total_clusters_with_completions' => $totalClusters,
                     'total_branches_completed' => $totalBranches,
                     'clusters' => $clusters
-                ]
+                ],
+                'pagination' => $allDoneBranchesResult['pagination']
             ];
         }
     }
