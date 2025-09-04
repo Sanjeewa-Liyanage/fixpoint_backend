@@ -1,6 +1,7 @@
 <?php
 require_once 'src/utils/ApiResourceBase.php';
 require_once 'src/classes/BackupAssignment.php';
+require_once 'src/database/connection.php';
 
 class BackupAssignmentApi extends ApiResourceBase {
     public function __construct() {
@@ -13,7 +14,8 @@ class BackupAssignmentApi extends ApiResourceBase {
             "get_assignments_by_backup" => ["admin","technician"],
             "get_assignments_by_repair" => ["admin","technician"],
             "get_assignments_by_location" => ["admin","technician"],
-            "get_active_assignments" => ["admin","technician"]
+            "get_active_assignments" => ["admin","technician"],
+            "mark_as_received" => ["admin","technician"]
         ]);
     }
 
@@ -507,5 +509,88 @@ class BackupAssignmentApi extends ApiResourceBase {
             'status' => 'success',
             'data' => $backupAssignments
         ];
+    }
+
+    public function mark_as_received($data) {
+        $user = $this->getAuthenticatedUser();
+        if (!$user) {
+            return [
+                'message' => 'Authentication required',
+                'status' => 'error'
+            ];
+        }
+        if(!$this->checkRoles($user['role_name'],'mark_as_received')) {
+            return [
+                'message' => 'Unauthorized',
+                'status' => 'error'
+            ];
+        }
+
+        $missing = $this->validateFields($data, ['assignment_id', 'received_date']);
+        if (!empty($missing)) {
+            return [
+                'message' => 'Invalid Request. Missing fields: ' . implode(', ', $missing),
+                'status' => 'error'
+            ];
+        }
+
+        $assignment_id = $data['assignment_id'];
+        $received_date = $data['received_date'];
+
+        try {
+            // First, get the backup assignment with machine serial number
+            $backupAssignment = new BackupAssignment();
+            $backupAssignment->assignment_id = $assignment_id;
+            $success = $backupAssignment->read();
+            
+            if (!$success) {
+                return [
+                    'message' => 'Assignment not found',
+                    'status' => 'error'
+                ];
+            }
+
+            $serial_no = $backupAssignment->backup_machine['serial_no'];
+
+            // Update the assignment's received_date
+            $backupAssignment->received_date = $received_date;
+            $updateResult = $backupAssignment->update();
+
+            if (!$updateResult) {
+                return [
+                    'message' => 'Failed to update assignment',
+                    'status' => 'error'
+                ];
+            }
+
+            // Update the backup machine status to 'available'
+            $conn = DatabaseConnection::getConnection();
+            $query = "UPDATE backup_machine SET status = 'available' WHERE serial_no = :serial_no";
+            $stmt = $conn->prepare($query);
+            $stmt->bindParam(':serial_no', $serial_no);
+            
+            if (!$stmt->execute()) {
+                return [
+                    'message' => 'Failed to update machine status',
+                    'status' => 'error'
+                ];
+            }
+
+            return [
+                'message' => 'Assignment marked as received and machine is now available',
+                'status' => 'success',
+                'data' => [
+                    'assignment_id' => $assignment_id,
+                    'received_date' => $received_date,
+                    'serial_no' => $serial_no
+                ]
+            ];
+
+        } catch (Exception $e) {
+            return [
+                'message' => 'Server error: ' . $e->getMessage(),
+                'status' => 'error'
+            ];
+        }
     }
 }
