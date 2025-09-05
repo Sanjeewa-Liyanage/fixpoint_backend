@@ -1,0 +1,26 @@
+{
+    "url": "http://localhost/backup/backup_machine/get_backup_machine",
+    "method": "POST",
+    "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer YOUR_ADMIN_TOKEN_HERE"
+    },
+    "body": {
+        "backup_id": 1
+    },
+    "description": "Test retrieving a backup machine by ID",
+    "expected_response": {
+        "message": "Backup machine found",
+        "status": "success",
+        "data": {
+            "backup_id": 1,
+            "serial_no": "BM001",
+            "model": "Dell PowerEdge R440",
+            "status": "available"
+        }
+    },
+    "notes": [
+        "Admin or user token can be used for authorization",
+        "Returns 404 if backup machine not found"
+    ]
+}

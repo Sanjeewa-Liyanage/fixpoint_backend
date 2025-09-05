@@ -263,6 +263,10 @@ class RoutineApi extends ApiResourceBase{
             return ['status' => 'error', 'message' => 'Missing: ' . implode(', ', $missing)];
         }
 
+        // Debug logging
+        error_log("routineApi assignTechnician called with data: " . json_encode($data));
+        error_log("cluster_id: " . var_export($data['cluster_id'], true) . ", user_id: " . var_export($data['user_id'], true));
+
         $success = ClusterTechnician::assignTechnician($data['cluster_id'], $data['user_id']);
         
         if (!$success) {

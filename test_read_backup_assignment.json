@@ -1,0 +1,54 @@
+{
+    "url": "http://localhost/branch/backup_assignment/get_backup_assignment",
+    "method": "POST",
+    "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer YOUR_ADMIN_TOKEN_HERE"
+    },
+    "body": {
+        "assignment_id": 1
+    },
+    "description": "Test retrieving a backup assignment with repair and branch details",
+    "expected_response": {
+        "message": "Backup assignment found",
+        "status": "success",
+        "data": {
+            "assignment_id": 1,
+            "backup_id": 1,
+            "repair_id": 1,
+            "location": 2,
+            "sent_date": "2025-01-15",
+            "received_date": null,
+            "backup_machine": {
+                "backup_id": 1,
+                "serial_no": "BM001",
+                "model": "Dell PowerEdge R440",
+                "status": "available"
+            },
+            "repair_details": {
+                "repair_id": 1,
+                "device_type": "ATM",
+                "device_id": "ATM001",
+                "branch_id": 2,
+                "technician_id": 3,
+                "start_time": "2025-01-15 10:00:00",
+                "end_time": null,
+                "status": "in_progress",
+                "summary": null,
+                "virtual_support_link": null,
+                "backup_sent": false,
+                "visit_required": true,
+                "technician_name": "John Doe"
+            },
+            "branch_details": {
+                "branch_id": 2,
+                "name": "Main Branch"
+            }
+        }
+    },
+    "notes": [
+        "Admin or technician token can be used for authorization",
+        "Returns detailed information including backup machine, repair, and branch details",
+        "Returns 404 if assignment not found"
+    ]
+}

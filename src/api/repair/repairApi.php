@@ -57,10 +57,36 @@ class RepairApi extends ApiResourceBase {
         $success = $repair->create();
 
         if ($success) {
-            return [
+            $emailResult = null;
+            // Send virtual support link email
+            $branchDetails = Branch::getById($branch_id);
+            if ($branchDetails && !empty($branchDetails['email']) && !empty($data['virtual_support_link'])) {
+                $technicianName = $user['username'] ?? 'Support Technician';
+                
+                // Explicitly configure the email service, mirroring the working implementation in Service_ReportingApi
+                $connectionString = "endpoint=https://fixpoit-mailler.unitedstates.communication.azure.com/;accesskey=DlCOIqLviNq3RKnhC10g61vOZ46nN3qtE4a3DR5IRke2vLzHJ6jnJQQJ99BHACULyCpQCLZ2AAAAAZCSSthx";
+                $senderAddress = "DoNotReply@1150820c-c077-40e5-bf54-90e4e6adcb7e.azurecomm.net";
+                \Fixpoint\Utils\AzureEmailService::configure($connectionString, $senderAddress);
+
+                $emailResult = \Fixpoint\Utils\AzureEmailService::sendVirtualSupportLinkEmail(
+                    $branchDetails['email'],
+                    $branchDetails['contact_person'] ?? 'Branch Contact',
+                    $data['virtual_support_link'],
+                    $data['device_id'],
+                    $technicianName
+                );
+            }
+
+            $response = [
                 "status" => "success",
                 "message" => "Repair created successfully."
             ];
+
+            if ($emailResult) {
+                $response['email_status'] = $emailResult;
+            }
+
+            return $response;
         } else {
             return [
                 "status" => "error",

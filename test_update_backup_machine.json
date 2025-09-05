@@ -1,0 +1,30 @@
+{
+    "url": "http://localhost/backup/backup_machine/update_backup_machine",
+    "method": "POST",
+    "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer YOUR_ADMIN_TOKEN_HERE"
+    },
+    "body": {
+        "backup_id": 1,
+        "status": "in_use",
+        "model": "Dell PowerEdge R440 Updated"
+    },
+    "description": "Test updating a backup machine's status and model",
+    "expected_response": {
+        "message": "Backup machine updated successfully",
+        "status": "success",
+        "data": {
+            "backup_id": 1,
+            "serial_no": "BM001",
+            "model": "Dell PowerEdge R440 Updated",
+            "status": "in_use"
+        }
+    },
+    "notes": [
+        "Admin token is required for authorization",
+        "Only provided fields will be updated",
+        "Status must be one of: available, in_use, maintenance, retired",
+        "Returns error if backup machine not found"
+    ]
+}

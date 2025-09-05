@@ -6,14 +6,16 @@ class Routine extends Model {
     public $status;
     public $description;
     public $response_count;
+    public $quarter;
     public $branches; // array of branch data
   private const GOOGLE_MAPS_API_KEY = 'AIzaSyAsKW1D7v1veULUSuqvfI3sH82XAMa3qN0';
-    public function __construct($routine_id = null, $planned_date = null, $status = 'pending', $description = null, $response_count = 0, $branches = []) {
+    public function __construct($routine_id = null, $planned_date = null, $status = 'pending', $description = null, $response_count = 0, $quarter = null, $branches = []) {
         $this->routine_id = $routine_id;
         $this->planned_date = $planned_date;
         $this->status = $status;
         $this->description = $description;
         $this->response_count = $response_count;
+        $this->quarter = $quarter;
         $this->branches = $branches;
     }
 
@@ -50,6 +52,7 @@ class Routine extends Model {
         $this->status = $result['status'];
         $this->description = $result['description'];
         $this->response_count = $result['response_count'];
+        $this->quarter = $result['quarter'];
         $this->branches = json_decode($result['branches'], true);
         return $result['id'] !== null;
     }
@@ -616,6 +619,7 @@ private function formatClusterOutput($finalClustersWithData, $branches) {
                 $row['status'],
                 $row['description'],
                 $row['response_count'],
+                $row['quarter'],
                 json_decode($row['branches'], true)
             );
             $routines[] = $routine;

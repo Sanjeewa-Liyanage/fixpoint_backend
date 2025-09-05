@@ -31,7 +31,7 @@
     public function create() {
         $conn = DatabaseConnection::getConnection();
         $sql = "INSERT INTO service (branch_id, client_id, user_id, device_type, service_date, service_type, service_notes, created_at, teller_scanner_serial, chdm_serial, quarter)
-                VALUES (:branch_id, :client_id, :user_id, :device_type, :service_date, :service_type, :service_notes, :created_at, :teller_scanner_serial, :chdm_serial, :quarter)";
+                VALUES (:branch_id, :client_id, :user_id, :device_type, :service_date, :service_type, :service_notes, :created_at, :teller_scanner_serial, :chdm_serial, :quarter) RETURNING service_id";
         $stmt = $conn->prepare($sql);
 
         $stmt->bindParam(":branch_id", $this->branch_id);
@@ -47,7 +47,14 @@
         $stmt->bindParam(":quarter", $this->quarter);
 
         $success = $stmt->execute();
-        return $success;
+        if ($success) {
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($result && isset($result['service_id'])) {
+                $this->service_id = $result['service_id'];
+                return true;
+            }
+        }
+        return false;
     }
     public function search($keyword) {
         $conn = DatabaseConnection::getConnection();

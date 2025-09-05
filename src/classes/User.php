@@ -147,6 +147,10 @@ class User extends Model{
         $success = $stmt -> execute();
         return $success;
     }
+
+
+
+
     public function getById ($id) {
         $conn = DatabaseConnection::getConnection();
         $sql = "SELECT * FROM users WHERE user_id = :id";

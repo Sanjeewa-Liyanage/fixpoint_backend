@@ -1,0 +1,27 @@
+{
+    "url": "http://localhost/src/api/auth/profileApi.php",
+    "method": "POST",
+    "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer YOUR_ADMIN_TOKEN_HERE"
+    },
+    "body": {
+        "action": "create",
+        "username": "testuser123",
+        "email": "test@example.com",
+        "phone": "+1234567890",
+        "profile_picture": "default_avatar.jpg"
+    },
+    "description": "Test creating a new user with auto-generated password and email notification",
+    "expected_response": {
+        "message": "User created successfully and default password sent to email",
+        "status": "success",
+        "email_sent": true
+    },
+    "notes": [
+        "Password is automatically generated and sent via email",
+        "No need to provide password in the request",
+        "Admin token is required for authorization",
+        "Email will be sent to the provided email address with the default password"
+    ]
+}
