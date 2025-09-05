@@ -135,4 +135,70 @@ class Qc_Reporting extends Model {
     $success = $stmt->execute();
     return $success;
   }
+
+  // Get QC reports created by a specific user
+  public static function getReportsByUser($qc_officer_id) {
+    $conn = DatabaseConnection::getConnection();
+    $sql = "SELECT qc.*, 
+                   c.serial_no, 
+                   c.location, 
+                   c.description as chdm_description,
+                   u.username as qc_officer_name,
+                   u.email as qc_officer_email
+            FROM quality_check qc
+            LEFT JOIN chdm c ON qc.chdm_id = c.id
+            LEFT JOIN users u ON qc.qc_officer_id = u.user_id
+            WHERE qc.qc_officer_id = :qc_officer_id
+            ORDER BY qc.date DESC";
+    $stmt = $conn->prepare($sql);
+    $stmt->bindParam(':qc_officer_id', $qc_officer_id);
+    $stmt->execute();
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+  }
+
+  // Get QC reports created by a specific user with pagination
+  public static function getReportsByUserPaginated($qc_officer_id, $page = 1, $limit = 10) {
+    $conn = DatabaseConnection::getConnection();
+    
+    // Calculate offset
+    $offset = ($page - 1) * $limit;
+    
+    // Get total count
+    $countSql = "SELECT COUNT(*) as total 
+                 FROM quality_check qc 
+                 WHERE qc.qc_officer_id = :qc_officer_id";
+    $countStmt = $conn->prepare($countSql);
+    $countStmt->bindParam(':qc_officer_id', $qc_officer_id);
+    $countStmt->execute();
+    $totalCount = $countStmt->fetch(PDO::FETCH_ASSOC)['total'];
+    
+    // Get paginated results
+    $sql = "SELECT qc.*, 
+                   c.serial_no, 
+                   c.location, 
+                   c.description as chdm_description,
+                   u.username as qc_officer_name,
+                   u.email as qc_officer_email
+            FROM quality_check qc
+            LEFT JOIN chdm c ON qc.chdm_id = c.id
+            LEFT JOIN users u ON qc.qc_officer_id = u.user_id
+            WHERE qc.qc_officer_id = :qc_officer_id
+            ORDER BY qc.date DESC, qc.qc_id DESC
+            LIMIT :limit OFFSET :offset";
+    
+    $stmt = $conn->prepare($sql);
+    $stmt->bindParam(':qc_officer_id', $qc_officer_id);
+    $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
+    $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
+    $stmt->execute();
+    $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    return [
+      'data' => $results,
+      'total' => $totalCount,
+      'page' => $page,
+      'limit' => $limit,
+      'total_pages' => ceil($totalCount / $limit)
+    ];
+  }
 }
