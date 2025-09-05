@@ -11,13 +11,8 @@ class ChdmApi extends ApiResourceBase{
         "update_branch_id" => ["admin", "quality_checker"],
         "delete" => ["admin"],
         "search_chdm" => ["admin", "quality_checker"],
-<<<<<<< HEAD
         
         "assign_for_branch" => ["admin", "quality_checker"],
-=======
-
-
->>>>>>> 7bf43b2a97b1759408a94830ecae1670d647bbd2
         "view_all_chdm" => ["admin", "quality_checker","technician"],
         "update_all_chdm" => ["admin", "quality_checker"],
 
@@ -350,7 +345,7 @@ public function assignForBranch($data) {
             ];
         }
     }
-    public function search_chdm($data) {
+public function search_chdm($data) {
         $user = $this->getAuthenticatedUser();
         if (!$user) {
             return [
@@ -394,7 +389,7 @@ public function assignForBranch($data) {
             ];
         }
     }
-
+   
 
     public function view_all_chdm($data) {
         $user = $this->getAuthenticatedUser();
