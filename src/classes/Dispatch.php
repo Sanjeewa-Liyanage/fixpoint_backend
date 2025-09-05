@@ -104,3 +104,4 @@ class dispatch extends Model {
         return $success;
     }
 }
+
