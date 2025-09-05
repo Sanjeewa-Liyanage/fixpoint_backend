@@ -66,15 +66,37 @@ class Branch extends Model{
        
     }
 
-    public static function getAllBranchDetails(){
-
+    public static function getAllBranchDetails($page = 1, $limit = 10){
         $conn = DatabaseConnection::getConnection();
-        $sql ="SELECT b.*, c.name AS client_name FROM branch b JOIN client c ON b.client_id = c.client_id";
+        
+        // Calculate offset
+        $offset = ($page - 1) * $limit;
+        
+        // Get total count
+        $countSql = "SELECT COUNT(*) as total FROM branch b";
+        $countStmt = $conn->prepare($countSql);
+        $countStmt->execute();
+        $totalCount = $countStmt->fetch(PDO::FETCH_ASSOC)['total'];
+        
+        // Get paginated results with details
+        $sql = "SELECT b.*, c.name AS client_name 
+                FROM branch b 
+                JOIN client c ON b.client_id = c.client_id 
+                ORDER BY b.branch_id DESC
+                LIMIT :limit OFFSET :offset";
         $stmt = $conn->prepare($sql);
+        $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
+        $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
         $stmt->execute();
         $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        return $result;
-
+        
+        return [
+            'data' => $result,
+            'total' => $totalCount,
+            'page' => $page,
+            'limit' => $limit,
+            'total_pages' => ceil($totalCount / $limit)
+        ];
     }
     /**
      * Search branches by name and/or address. If both are provided, both are used in the query.

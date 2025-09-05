@@ -125,6 +125,60 @@
             return $result;
 
         }
+
+        public function readByTechnician($technician_id, $page = 1, $limit = 10) {
+            $conn = DatabaseConnection::getConnection();
+            
+            // Calculate offset
+            $offset = ($page - 1) * $limit;
+            
+            // Get total count
+            $countSql = "SELECT COUNT(*) as total 
+                         FROM installation i 
+                         WHERE i.technician_id = :technician_id";
+            $countStmt = $conn->prepare($countSql);
+            $countStmt->bindParam(':technician_id', $technician_id);
+            $countStmt->execute();
+            $totalCount = $countStmt->fetch(PDO::FETCH_ASSOC)['total'];
+            
+            // Get paginated results with details
+            $sql = "SELECT 
+                        i.installation_id,
+                        i.chdm_id,
+                        i.branch_id,
+                        b.name as branch_name,
+                        i.technician_id,
+                        i.status,
+                        i.date,
+                        i.completion_date,
+                        i.software_version,
+                        i.ip_address,
+                        i.notes,
+                        i.serial_no,
+                        u.username as technician_name,
+                        u.email as technician_email,
+                        u.phone as technician_phone
+                    FROM installation i
+                    LEFT JOIN users u ON i.technician_id = u.user_id
+                    LEFT JOIN branch b ON i.branch_id = b.branch_id
+                    WHERE i.technician_id = :technician_id
+                    ORDER BY i.installation_id DESC
+                    LIMIT :limit OFFSET :offset";
+            $stmt = $conn->prepare($sql);
+            $stmt->bindParam(':technician_id', $technician_id);
+            $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
+            $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
+            $stmt->execute();
+            $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            return [
+                'data' => $results,
+                'total' => $totalCount,
+                'page' => $page,
+                'limit' => $limit,
+                'total_pages' => ceil($totalCount / $limit)
+            ];
+        }
          public function update_status($status) {
             $conn = DatabaseConnection::getConnection();
             $sql = "UPDATE installation SET status = :status WHERE installation_id = :installation_id";

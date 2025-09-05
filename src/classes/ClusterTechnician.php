@@ -281,14 +281,29 @@ class ClusterTechnician extends Model {
     /**
      * Get clusters assigned to a specific technician
      * @param int $userId The user/technician ID
-     * @return array|bool Array of clusters or false on failure
+     * @param int $page Page number for pagination
+     * @param int $limit Number of items per page
+     * @return array|bool Array of clusters with pagination info or false on failure
      */
-    public static function getClustersByTechnician($userId) {
+    public static function getClustersByTechnician($userId, $page = 1, $limit = 10) {
         $conn = DatabaseConnection::getConnection();
-        $sql = "SELECT * FROM technician_cluster WHERE user_id = :user_id";
         
+        // Calculate offset
+        $offset = ($page - 1) * $limit;
+        
+        // Get total count for pagination info
+        $countSql = "SELECT COUNT(*) as total FROM technician_cluster WHERE user_id = :user_id";
+        $countStmt = $conn->prepare($countSql);
+        $countStmt->bindParam(':user_id', $userId);
+        $countStmt->execute();
+        $totalCount = $countStmt->fetch(PDO::FETCH_ASSOC)['total'];
+        
+        // Get paginated results
+        $sql = "SELECT * FROM technician_cluster WHERE user_id = :user_id ORDER BY cluster_id DESC LIMIT :limit OFFSET :offset";
         $stmt = $conn->prepare($sql);
         $stmt->bindParam(':user_id', $userId);
+        $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
         $stmt->execute();
         
         $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -305,10 +320,33 @@ class ClusterTechnician extends Model {
                     'cluster_branches' => json_decode($row['cluster_branches'], true)
                 ];
             }
-            return $clusters;
+            
+            $totalPages = ceil($totalCount / $limit);
+            
+            return [
+                'clusters' => $clusters,
+                'pagination' => [
+                    'current_page' => $page,
+                    'total_pages' => $totalPages,
+                    'total_count' => (int)$totalCount,
+                    'per_page' => $limit,
+                    'has_next' => $page < $totalPages,
+                    'has_previous' => $page > 1
+                ]
+            ];
         }
         
-        return false;
+        return [
+            'clusters' => [],
+            'pagination' => [
+                'current_page' => $page,
+                'total_pages' => 0,
+                'total_count' => 0,
+                'per_page' => $limit,
+                'has_next' => false,
+                'has_previous' => false
+            ]
+        ];
     }
     
     /**
@@ -535,22 +573,40 @@ class ClusterTechnician extends Model {
     /**
      * Get all completed branches for a user across all clusters
      * @param int $userId The user ID
-     * @return array|bool Array of completed clusters with technician info or false on failure
+     * @param int $page Page number for pagination
+     * @param int $limit Number of items per page
+     * @return array|bool Array of completed clusters with technician info and pagination or false on failure
      */
-    public static function getAllDoneBranchesByUser($userId) {
+    public static function getAllDoneBranchesByUser($userId, $page = 1, $limit = 10) {
         $conn = DatabaseConnection::getConnection();
         
         try {
+            // Calculate offset
+            $offset = ($page - 1) * $limit;
+            
+            // Get total count for pagination info
+            $countSql = "SELECT COUNT(*) as total FROM done_clusters WHERE user_id = :user_id";
+            $countStmt = $conn->prepare($countSql);
+            $countStmt->bindParam(':user_id', $userId);
+            $countStmt->execute();
+            $totalCount = $countStmt->fetch(PDO::FETCH_ASSOC)['total'];
+            
+            // Get paginated results
             $sql = "SELECT dc.cluster_id, dc.done_branches, dc.done_at AT TIME ZONE 'Asia/Colombo' as done_at, u.username as technician_name, u.email as technician_email 
                     FROM done_clusters dc 
                     LEFT JOIN users u ON dc.user_id = u.user_id 
                     WHERE dc.user_id = :user_id 
-                    ORDER BY dc.done_at DESC";
+                    ORDER BY dc.done_at DESC
+                    LIMIT :limit OFFSET :offset";
             $stmt = $conn->prepare($sql);
             $stmt->bindParam(':user_id', $userId);
+            $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+            $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
             $stmt->execute();
             
             $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            $totalPages = ceil($totalCount / $limit);
             
             if ($results) {
                 $doneClusters = [];
@@ -577,11 +633,31 @@ class ClusterTechnician extends Model {
                 return [
                     'technician_name' => $technicianName,
                     'technician_email' => $technicianEmail,
-                    'clusters' => $doneClusters
+                    'clusters' => $doneClusters,
+                    'pagination' => [
+                        'current_page' => $page,
+                        'total_pages' => $totalPages,
+                        'total_count' => (int)$totalCount,
+                        'per_page' => $limit,
+                        'has_next' => $page < $totalPages,
+                        'has_previous' => $page > 1
+                    ]
                 ];
             }
             
-            return [];
+            return [
+                'technician_name' => null,
+                'technician_email' => null,
+                'clusters' => [],
+                'pagination' => [
+                    'current_page' => $page,
+                    'total_pages' => 0,
+                    'total_count' => 0,
+                    'per_page' => $limit,
+                    'has_next' => false,
+                    'has_previous' => false
+                ]
+            ];
             
         } catch (Exception $e) {
             error_log("Error getting all done branches: " . $e->getMessage());

@@ -319,7 +319,7 @@ class BranchApi extends ApiResourceBase{
     }
 
 
-    public function readAll_branches() {
+    public function readAll_branches($data = []) {
         $user = $this->getAuthenticatedUser();
         if(!$user){
             return [
@@ -333,16 +333,49 @@ class BranchApi extends ApiResourceBase{
                 "message" => "Unauthorized: Admin or technician access required"
             ];
         }
-        $branches = Branch::getAllBranchDetails();
-        if ($branches && count($branches) > 0) {
+
+        // Get pagination parameters with defaults
+        $page = isset($data['page']) ? max(1, intval($data['page'])) : 1;
+        $limit = isset($data['limit']) ? max(1, min(100, intval($data['limit']))) : 10;
+
+        $result = Branch::getAllBranchDetails($page, $limit);
+
+        if ($result && $result['data'] && count($result['data']) > 0) {
             return [
                 "status" => "success",
-                "data" => $branches
+                "data" => $result['data'],
+                "count" => count($result['data']),
+                "total" => $result['total'],
+                "page" => $result['page'],
+                "limit" => $result['limit'],
+                "total_pages" => $result['total_pages'],
+                "pagination" => [
+                    "current_page" => $result['page'],
+                    "per_page" => $result['limit'],
+                    "total" => $result['total'],
+                    "total_pages" => $result['total_pages'],
+                    "has_next" => $result['page'] < $result['total_pages'],
+                    "has_prev" => $result['page'] > 1
+                ]
             ];
         } else {
             return [
-                "status" => "error",
-                "message" => "No branches found."
+                "status" => "success",
+                "data" => [],
+                "count" => 0,
+                "total" => $result['total'],
+                "page" => $result['page'],
+                "limit" => $result['limit'],
+                "total_pages" => $result['total_pages'],
+                "message" => "No branches found.",
+                "pagination" => [
+                    "current_page" => $result['page'],
+                    "per_page" => $result['limit'],
+                    "total" => $result['total'],
+                    "total_pages" => $result['total_pages'],
+                    "has_next" => false,
+                    "has_prev" => false
+                ]
             ];
         }
     }

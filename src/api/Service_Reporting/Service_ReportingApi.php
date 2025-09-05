@@ -13,6 +13,7 @@ public function __construct() {
         "update_service_reports" => ["technician", "admin"],
         "delete_service_report" => ["technician", "admin"],
         "view_all_service_reports" => ["technician", "admin"],
+        "view_technician_service_reports" => ["technician", "admin"],
         "get_technician_clusters" => ["technician", "admin"],
         "get_done_branches" => ["technician", "admin"]
     ]);
@@ -278,7 +279,7 @@ public function update_service_reports($data) {
         ];
  }
 }
-  public function view_all_service_reports($data) {
+    public function view_all_service_reports($data) {
         $user = $this->getAuthenticatedUser();
         if(!$user) {
             return [
@@ -293,20 +294,50 @@ public function update_service_reports($data) {
             ];
         }
 
-        $results = Service_Reporting::readAllWithDetails();
+        // Get pagination parameters with defaults
+        $page = isset($data['page']) ? max(1, intval($data['page'])) : 1;
+        $limit = isset($data['limit']) ? max(1, min(100, intval($data['limit']))) : 10;
 
-        if ($results !== false) {
-            if (empty($results)) {
+        $result = Service_Reporting::readAllWithDetails($page, $limit);
+
+        if ($result !== false) {
+            if (empty($result['data'])) {
                 return [
-                    "message" => "No service reports found",
                     "status" => "success",
-                    "data" => []
+                    "data" => [],
+                    "count" => 0,
+                    "total" => $result['total'],
+                    "page" => $result['page'],
+                    "limit" => $result['limit'],
+                    "total_pages" => $result['total_pages'],
+                    "message" => "No service reports found",
+                    "pagination" => [
+                        "current_page" => $result['page'],
+                        "per_page" => $result['limit'],
+                        "total" => $result['total'],
+                        "total_pages" => $result['total_pages'],
+                        "has_next" => false,
+                        "has_prev" => false
+                    ]
                 ];
             }
             return [
                 "status" => "success",
                 "message" => "Service reports retrieved successfully",
-                "data" => $results
+                "data" => $result['data'],
+                "count" => count($result['data']),
+                "total" => $result['total'],
+                "page" => $result['page'],
+                "limit" => $result['limit'],
+                "total_pages" => $result['total_pages'],
+                "pagination" => [
+                    "current_page" => $result['page'],
+                    "per_page" => $result['limit'],
+                    "total" => $result['total'],
+                    "total_pages" => $result['total_pages'],
+                    "has_next" => $result['page'] < $result['total_pages'],
+                    "has_prev" => $result['page'] > 1
+                ]
             ];
         } else {
             return [
@@ -316,7 +347,88 @@ public function update_service_reports($data) {
         }
     }
 
-    /**
+    public function view_technician_service_reports($data) {
+        $user = $this->getAuthenticatedUser();
+        if(!$user) {
+            return [
+                "status" => "error",
+                "message" => "Invalid authentication token"
+            ];
+        }
+        
+        $roleName = isset($user['role_name']) ? $user['role_name'] : (isset($user['role']['role_name']) ? $user['role']['role_name'] : null);
+        if(!$this->checkRoles($roleName, 'view_technician_service_reports')) {
+            return [
+                "status" => "error",
+                "message" => "Unauthorized: Admin or Technician access required"
+            ];
+        }
+
+        // Get technician_id from user token
+        $technician_id = null;
+        if (isset($user['user_id'])) {
+            $technician_id = $user['user_id'];
+        } elseif (isset($user['id'])) {
+            $technician_id = $user['id'];
+        } elseif (isset($user['uid'])) {
+            $technician_id = $user['uid'];
+        }
+
+        if (!$technician_id) {
+            return [
+                "status" => "error",
+                "message" => "Technician ID not found in authentication token"
+            ];
+        }
+
+        // Get pagination parameters with defaults
+        $page = isset($data['page']) ? max(1, intval($data['page'])) : 1;
+        $limit = isset($data['limit']) ? max(1, min(100, intval($data['limit']))) : 10;
+
+        $serviceReporting = new Service_Reporting();
+        $result = $serviceReporting->readByTechnician($technician_id, $page, $limit);
+
+        if ($result['data'] && count($result['data']) > 0) {
+            return [
+                "status" => "success",
+                "data" => $result['data'],
+                "count" => count($result['data']),
+                "total" => $result['total'],
+                "page" => $result['page'],
+                "limit" => $result['limit'],
+                "total_pages" => $result['total_pages'],
+                "technician_id" => $technician_id,
+                "pagination" => [
+                    "current_page" => $result['page'],
+                    "per_page" => $result['limit'],
+                    "total" => $result['total'],
+                    "total_pages" => $result['total_pages'],
+                    "has_next" => $result['page'] < $result['total_pages'],
+                    "has_prev" => $result['page'] > 1
+                ]
+            ];
+        } else {
+            return [
+                "status" => "success",
+                "data" => [],
+                "count" => 0,
+                "total" => $result['total'],
+                "page" => $result['page'],
+                "limit" => $result['limit'],
+                "total_pages" => $result['total_pages'],
+                "message" => "No service reports found for this technician.",
+                "technician_id" => $technician_id,
+                "pagination" => [
+                    "current_page" => $result['page'],
+                    "per_page" => $result['limit'],
+                    "total" => $result['total'],
+                    "total_pages" => $result['total_pages'],
+                    "has_next" => false,
+                    "has_prev" => false
+                ]
+            ];
+        }
+    }    /**
      * Get cluster information for a specific branch and technician
      * @param int $branchId The branch ID
      * @param int $userId The technician's user ID
@@ -444,7 +556,7 @@ public function update_service_reports($data) {
 
     /**
      * Get completed branches for a technician
-     * @param array $data Should contain user_id (optional) and cluster_id (optional)
+     * @param array $data Should contain user_id (optional), cluster_id (optional), page (optional), limit (optional)
      * @return array API response
      */
     public function get_done_branches($data) {
@@ -493,7 +605,7 @@ public function update_service_reports($data) {
         }
         
         if ($clusterId) {
-            // Get done branches for specific cluster
+            // Get done branches for specific cluster (no pagination needed for single cluster)
             $doneBranchesResult = ClusterTechnician::getDoneBranches($clusterId, $userId);
             
             if ($doneBranchesResult === false) {
@@ -530,8 +642,11 @@ public function update_service_reports($data) {
                 ]
             ];
         } else {
-            // Get all done branches for user across all clusters
-            $allDoneBranchesResult = ClusterTechnician::getAllDoneBranchesByUser($userId);
+            // Get all done branches for user across all clusters with pagination
+            $page = isset($data['page']) ? max(1, intval($data['page'])) : 1;
+            $limit = isset($data['limit']) ? max(1, min(100, intval($data['limit']))) : 10; // Cap at 100 items per page
+            
+            $allDoneBranchesResult = ClusterTechnician::getAllDoneBranchesByUser($userId, $page, $limit);
             
             if ($allDoneBranchesResult === false) {
                 return [
@@ -540,7 +655,7 @@ public function update_service_reports($data) {
                 ];
             }
             
-            if (empty($allDoneBranchesResult)) {
+            if (empty($allDoneBranchesResult['clusters'])) {
                 return [
                     'status' => 'success',
                     'message' => 'No completed branches found',
@@ -549,11 +664,12 @@ public function update_service_reports($data) {
                         'total_clusters_with_completions' => 0,
                         'total_branches_completed' => 0,
                         'clusters' => []
-                    ]
+                    ],
+                    'pagination' => $allDoneBranchesResult['pagination']
                 ];
             }
             
-            // Calculate totals
+            // Calculate totals for the current page
             $clusters = $allDoneBranchesResult['clusters'];
             $totalClusters = count($clusters);
             $totalBranches = 0;
@@ -571,7 +687,8 @@ public function update_service_reports($data) {
                     'total_clusters_with_completions' => $totalClusters,
                     'total_branches_completed' => $totalBranches,
                     'clusters' => $clusters
-                ]
+                ],
+                'pagination' => $allDoneBranchesResult['pagination']
             ];
         }
     }

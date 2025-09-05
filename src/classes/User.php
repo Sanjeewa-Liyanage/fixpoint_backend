@@ -20,11 +20,15 @@ class User extends Model{
     }
      public function create(){
         $conn = DatabaseConnection::getConnection();
+        
+        // Hash the password before storing it
+        $hashedPassword = password_hash($this->password, PASSWORD_DEFAULT);
+        
         $sql = "INSERT INTO users (username, email, password, phone, profile_picture) VALUES (:username, :email, :password, :phone, :profile_picture)";
         $stmt = $conn->prepare($sql);
         $stmt -> bindParam(":email", $this->email);
         $stmt -> bindParam(":username", $this->username);
-        $stmt -> bindParam(":password", $this->password);
+        $stmt -> bindParam(":password", $hashedPassword);
         $stmt -> bindParam(":phone", $this->phone);
         $stmt -> bindParam(":profile_picture", $this->profile_picture);
         $success = $stmt -> execute();
@@ -128,6 +132,20 @@ class User extends Model{
         $stmt->bindParam(':profile_picture', $this->profile_picture);
 
        
+        return $stmt->execute();
+    }
+
+    public function updatePassword($newPassword) {
+        $conn = DatabaseConnection::getConnection();
+        
+        // Hash the new password
+        $hashedPassword = password_hash($newPassword, PASSWORD_DEFAULT);
+        
+        $sql = "UPDATE users SET password = :password WHERE user_id = :id";
+        $stmt = $conn->prepare($sql);
+        $stmt->bindParam(':id', $this->id);
+        $stmt->bindParam(':password', $hashedPassword);
+        
         return $stmt->execute();
     }
      public function delete() {

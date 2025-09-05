@@ -1,4 +1,8 @@
 <?php
+require_once 'src/classes/Repair.php';
+require_once 'src/classes/Installation.php';
+require_once 'src/classes/ClusterTechnician.php';
+
 
 class StatsApi extends ApiResourceBase {
     public function __construct() {
@@ -16,8 +20,118 @@ class StatsApi extends ApiResourceBase {
             'service_stats' => ['admin','technician'],
             'qc_summary' => ['admin','technician'],
             'repair_summary' => ['admin','technician'],
-            'inventory_stock_summary' => ['admin','technician']
+            'inventory_stock_summary' => ['admin','technician'],
+            'technician_dashboard' => ['admin','technician']
         ]);
+    }
+    /**
+     * GET /api/stats/stats/technician_dashboard
+     * Returns dashboard data for the authenticated technician
+     */
+    public function technician_dashboard($data) {
+    $user = $this->getAuthenticatedUser();
+        if(!$user) {
+            return [
+                "status" => "error",
+                "message" => "Invalid authentication token"
+            ];
+        }
+        $roleName = isset($user['role_name']) ? $user['role_name'] : (isset($user['role']['role_name']) ? $user['role']['role_name'] : null);
+        if(!$this->checkRoles($roleName, 'technician_dashboard')) {
+            return [
+                "status" => "error",
+                "message" => "Unauthorized: Technician access required"
+            ];
+        }
+        $technician_id = null;
+        if (isset($user['user_id'])) {
+            $technician_id = $user['user_id'];
+        } elseif (isset($user['id'])) {
+            $technician_id = $user['id'];
+        } elseif (isset($user['uid'])) {
+            $technician_id = $user['uid'];
+        }
+
+        if (!$technician_id) {
+            return [
+                "status" => "error",
+                "message" => "Technician ID not found in user data"
+            ];
+        }
+        $conn = DatabaseConnection::getConnection();
+
+        // 1. Latest 5 service details
+    $services = $conn->prepare("SELECT s.*, b.name as branch_name FROM service s LEFT JOIN branch b ON s.branch_id = b.branch_id WHERE s.user_id = :tid ORDER BY s.service_date DESC LIMIT 5");
+    $services->execute([':tid'=>$technician_id]);
+    $latest_services = $services->fetchAll(PDO::FETCH_ASSOC);
+
+        // 2. Latest 5 installations
+        $installationObj = new Installation();
+        $installations = $installationObj->readByTechnician($technician_id, 1, 5);
+        $latest_installations = $installations['data'] ?? [];
+
+        // 3. Latest 5 repairs
+        $repairs = $conn->prepare("SELECT r.*, b.name as branch_name FROM repair r LEFT JOIN branch b ON r.branch_id = b.branch_id WHERE r.technician_id = :tid ORDER BY r.end_time DESC LIMIT 5");
+        $repairs->execute([':tid'=>$technician_id]);
+        $latest_repairs = $repairs->fetchAll(PDO::FETCH_ASSOC);
+
+        // 4. Latest assigned cluster
+        $clustersResult = ClusterTechnician::getClustersByTechnician($technician_id, 1, 1);
+        $clusters = $clustersResult['clusters'] ?? [];
+        $latest_assigned_cluster = !empty($clusters) ? $clusters[0] : null;
+
+        // 5. Latest done cluster
+        $doneClustersResult = ClusterTechnician::getAllDoneBranchesByUser($technician_id, 1, 1);
+        $doneClusters = $doneClustersResult['clusters'] ?? [];
+        $latest_done_cluster = !empty($doneClusters) ? $doneClusters[0] : null;
+
+        // 6. Performance calculation
+        // Get all services done by technician, grouped by quarter
+        // Get all quarters (1-4) and count services for each using the quarter column
+        $serviceQuarterStmt = $conn->prepare("
+            SELECT q.quarter, COALESCE(s.count, 0) AS count
+            FROM (VALUES (1), (2), (3), (4)) AS q(quarter)
+            LEFT JOIN (
+                SELECT quarter, COUNT(*) AS count
+                FROM service
+                WHERE user_id = :tid
+                GROUP BY quarter
+            ) s ON q.quarter = s.quarter
+            ORDER BY q.quarter
+        ");
+        $serviceQuarterStmt->execute([':tid'=>$technician_id]);
+        $services_by_quarter = $serviceQuarterStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Get count of all repairs done by technician
+        $repairCountStmt = $conn->prepare("SELECT COUNT(*) AS count FROM repair WHERE technician_id = :tid");
+        $repairCountStmt->execute([':tid'=>$technician_id]);
+        $repair_count = (int)($repairCountStmt->fetch(PDO::FETCH_ASSOC)['count'] ?? 0);
+
+        // Get count of all installations done by technician
+        $installationCountStmt = $conn->prepare("SELECT COUNT(*) AS count FROM installation WHERE technician_id = :tid");
+        $installationCountStmt->execute([':tid'=>$technician_id]);
+        $installation_count = (int)($installationCountStmt->fetch(PDO::FETCH_ASSOC)['count'] ?? 0);
+
+        // Done clusters count
+        $done_clusters_count = $doneClustersResult['pagination']['total_count'] ?? 0;
+
+        $performance = [
+            'services_by_quarter' => $services_by_quarter,
+            'repair_count' => $repair_count,
+            'installation_count' => $installation_count,
+            'done_clusters_count' => $done_clusters_count
+        ];
+
+            return [
+                'status' => 'success',
+                'technician_id' => $technician_id,
+                'latest_services' => $latest_services,
+                'latest_installations' => $latest_installations,
+                'latest_repairs' => $latest_repairs,
+                'latest_assigned_cluster' => $latest_assigned_cluster,
+                'latest_done_cluster' => $latest_done_cluster,
+                'performance' => $performance
+            ];
     }
 
     /**

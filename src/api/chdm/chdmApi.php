@@ -3,20 +3,20 @@ class ChdmApi extends ApiResourceBase{
 
     public function __construct(){
        $this->setRoles([
-        "create_chdm" => ["admin", "quality_checker"],
-        "view_passes_chdm" => ["admin", "quality_checker"],
-        "view_failed_chdm" => ["admin", "quality_checker"],
-        "update_status" => ["admin", "quality_checker"],
-        "update_location" => ["admin", "quality_checker"],
-        "update_branch_id" => ["admin", "quality_checker"],
+        "create_chdm" => ["admin", "Quality_Checker"],
+        "view_passes_chdm" => ["admin", "Quality_Checker"],
+        "view_failed_chdm" => ["admin", "Quality_Checker"],
+        "update_status" => ["admin", "Quality_Checker"],
+        "update_location" => ["admin", "Quality_Checker"],
+        "update_branch_id" => ["admin", "Quality_Checker"],
         "delete" => ["admin"],
-        "search_chdm" => ["admin", "quality_checker"],
+        "search_chdm" => ["admin", "Quality_Checker"],
         
-        "assign_for_branch" => ["admin", "quality_checker"],
-        "view_all_chdm" => ["admin", "quality_checker","technician"],
-        "update_all_chdm" => ["admin", "quality_checker"],
+        "assign_for_branch" => ["admin", "Quality_Checker"],
+        "view_all_chdm" => ["admin", "Quality_Checker","technician"],
+        "update_all_chdm" => ["admin", "Quality_Checker"],
 
-        "get_not_assigned" => ["admin", "quality_checker","technician"]
+        "get_not_assigned" => ["admin", "Quality_Checker","technician"]
        ]); 
     }
 

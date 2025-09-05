@@ -6,6 +6,7 @@ class RepairApi extends ApiResourceBase {
             "create_repair" => ["admin", "technician"],
             "read_repair" => ["admin", "technician", "user"],
             "read_all_repairs" => ["admin", "technician", "user"],
+            "read_technician_repairs" => ["admin", "technician"],
             "update_repair" => ["admin", "technician"],
             "update_all" => ["admin", "technician"],
             "delete_repair" => ["admin"]
@@ -111,21 +112,49 @@ class RepairApi extends ApiResourceBase {
             ];
         }
 
-        $repair = new Repair();
-        $results = $repair->read();
+        // Get pagination parameters with defaults
+        $page = isset($data['page']) ? max(1, intval($data['page'])) : 1;
+        $limit = isset($data['limit']) ? max(1, min(100, intval($data['limit']))) : 10;
 
-        if ($results && count($results) > 0) {
+        $repair = new Repair();
+        $result = $repair->read($page, $limit);
+
+        if ($result['data'] && count($result['data']) > 0) {
             return [
                 "status" => "success",
-                "data" => $results,
-                "count" => count($results)
+                "data" => $result['data'],
+                "count" => count($result['data']),
+                "total" => $result['total'],
+                "page" => $result['page'],
+                "limit" => $result['limit'],
+                "total_pages" => $result['total_pages'],
+                "pagination" => [
+                    "current_page" => $result['page'],
+                    "per_page" => $result['limit'],
+                    "total" => $result['total'],
+                    "total_pages" => $result['total_pages'],
+                    "has_next" => $result['page'] < $result['total_pages'],
+                    "has_prev" => $result['page'] > 1
+                ]
             ];
         } else {
             return [
                 "status" => "success",
                 "data" => [],
                 "count" => 0,
-                "message" => "No repair records found."
+                "total" => $result['total'],
+                "page" => $result['page'],
+                "limit" => $result['limit'],
+                "total_pages" => $result['total_pages'],
+                "message" => "No repair records found.",
+                "pagination" => [
+                    "current_page" => $result['page'],
+                    "per_page" => $result['limit'],
+                    "total" => $result['total'],
+                    "total_pages" => $result['total_pages'],
+                    "has_next" => false,
+                    "has_prev" => false
+                ]
             ];
         }
     }
@@ -160,6 +189,87 @@ class RepairApi extends ApiResourceBase {
                 "data" => [],
                 "count" => 0,
                 "message" => "No repair records found."
+            ];
+        }
+    }
+
+    public function read_technician_repairs($data) {
+        $user = $this->getAuthenticatedUser();
+        if (!$user) {
+            return [
+                "status" => "error",
+                "message" => "Invalid authentication token"
+            ];
+        }
+        if (!$this->checkRoles($user['role_name'], 'read_technician_repairs')) {
+            return [
+                "status" => "error",
+                "message" => "Unauthorized: Admin or Technician access required"
+            ];
+        }
+
+        // Get technician_id from user token
+        $technician_id = null;
+        if (isset($user['user_id'])) {
+            $technician_id = $user['user_id'];
+        } elseif (isset($user['id'])) {
+            $technician_id = $user['id'];
+        } elseif (isset($user['uid'])) {
+            $technician_id = $user['uid'];
+        }
+
+        if (!$technician_id) {
+            return [
+                "status" => "error",
+                "message" => "Technician ID not found in authentication token"
+            ];
+        }
+
+        // Get pagination parameters with defaults
+        $page = isset($data['page']) ? max(1, intval($data['page'])) : 1;
+        $limit = isset($data['limit']) ? max(1, min(100, intval($data['limit']))) : 10;
+
+        $repair = new Repair();
+        $result = $repair->readByTechnician($technician_id, $page, $limit);
+
+        if ($result['data'] && count($result['data']) > 0) {
+            return [
+                "status" => "success",
+                "data" => $result['data'],
+                "count" => count($result['data']),
+                "total" => $result['total'],
+                "page" => $result['page'],
+                "limit" => $result['limit'],
+                "total_pages" => $result['total_pages'],
+                "technician_id" => $technician_id,
+                "pagination" => [
+                    "current_page" => $result['page'],
+                    "per_page" => $result['limit'],
+                    "total" => $result['total'],
+                    "total_pages" => $result['total_pages'],
+                    "has_next" => $result['page'] < $result['total_pages'],
+                    "has_prev" => $result['page'] > 1
+                ]
+            ];
+        } else {
+            return [
+                "status" => "success",
+                "data" => [],
+                "count" => 0,
+                "total" => $result['total'],
+                "page" => $result['page'],
+                "limit" => $result['limit'],
+                "total_pages" => $result['total_pages'],
+                "message" => "No repair records found for this technician.",
+                "technician_id" => $technician_id,
+                "pagination" => [
+                    "current_page" => $result['page'],
+                    "per_page" => $result['limit'],
+                    "total" => $result['total'],
+                    "total_pages" => $result['total_pages'],
+                    "has_next" => false,
+                    "has_prev" => false
+                ]
             ];
         }
     }

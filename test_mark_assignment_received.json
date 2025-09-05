@@ -1,0 +1,12 @@
+{
+    "method": "POST",
+    "endpoint": "/api/backup/BackupAssignmentApi/mark_as_received",
+    "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer YOUR_JWT_TOKEN_HERE"
+    },
+    "body": {
+        "assignment_id": 1,
+        "received_date": "2024-01-15 10:30:00"
+    }
+}

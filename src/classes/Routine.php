@@ -600,15 +600,38 @@ private function formatClusterOutput($finalClustersWithData, $branches) {
         return $stmt->execute();
     }
 
-    static public function getAllRoutines(){
+    static public function getAllRoutines($page = 1, $limit = 10){
         $conn = DatabaseConnection::getConnection();
-        $sql = "SELECT * FROM routines";
+        
+        // Calculate offset
+        $offset = ($page - 1) * $limit;
+        
+        // Get total count for pagination info
+        $countSql = "SELECT COUNT(*) as total FROM routines";
+        $countStmt = $conn->prepare($countSql);
+        $countStmt->execute();
+        $totalCount = $countStmt->fetch(PDO::FETCH_ASSOC)['total'];
+        
+        // Get paginated results
+        $sql = "SELECT * FROM routines ORDER BY id DESC LIMIT :limit OFFSET :offset";
         $stmt = $conn->prepare($sql);
+        $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
         $stmt->execute();
         $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
         if (!$results) {
-            return [];
+            return [
+                'routines' => [],
+                'pagination' => [
+                    'current_page' => $page,
+                    'total_pages' => 0,
+                    'total_count' => 0,
+                    'per_page' => $limit,
+                    'has_next' => false,
+                    'has_previous' => false
+                ]
+            ];
         }
 
         $routines = [];
@@ -625,7 +648,19 @@ private function formatClusterOutput($finalClustersWithData, $branches) {
             $routines[] = $routine;
         }
         
-        return $routines;
+        $totalPages = ceil($totalCount / $limit);
+        
+        return [
+            'routines' => $routines,
+            'pagination' => [
+                'current_page' => $page,
+                'total_pages' => $totalPages,
+                'total_count' => (int)$totalCount,
+                'per_page' => $limit,
+                'has_next' => $page < $totalPages,
+                'has_previous' => $page > 1
+            ]
+        ];
     }
 
     

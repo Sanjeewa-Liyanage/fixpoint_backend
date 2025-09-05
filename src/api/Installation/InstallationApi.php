@@ -6,6 +6,7 @@
             "create_installation" => ["admin", "technician"],
             "view_complete_installations" => ["admin", "technician"],
             "view_pending_installations" => ["admin", "technician"],
+            "view_technician_installations" => ["admin", "technician"],
             "update_status" => ["admin", "technician"],
             "update_software_version" => ["admin", "technician"],
             "update_completion_date" => ["admin", "technician"],
@@ -192,6 +193,88 @@
                 'message'=> 'Failed to retrieve pending installations',
                 'status'=> 'error'
             ]; 
+        }
+    }
+
+    public function view_technician_installations($data) {
+        $user = $this->getAuthenticatedUser();
+        if (!$user) {
+            return [
+                "status" => "error",
+                "message" => "Invalid authentication token"
+            ];
+        }
+        
+        if (!$this->checkRoles($user['role_name'], 'view_technician_installations')) {
+            return [
+                "status" => "error",
+                "message" => "Unauthorized: Admin or Technician access required"
+            ];
+        }
+
+        // Get technician_id from user token
+        $technician_id = null;
+        if (isset($user['user_id'])) {
+            $technician_id = $user['user_id'];
+        } elseif (isset($user['id'])) {
+            $technician_id = $user['id'];
+        } elseif (isset($user['uid'])) {
+            $technician_id = $user['uid'];
+        }
+
+        if (!$technician_id) {
+            return [
+                "status" => "error",
+                "message" => "Technician ID not found in authentication token"
+            ];
+        }
+
+        // Get pagination parameters with defaults
+        $page = isset($data['page']) ? max(1, intval($data['page'])) : 1;
+        $limit = isset($data['limit']) ? max(1, min(100, intval($data['limit']))) : 10;
+
+        $installation = new Installation();
+        $result = $installation->readByTechnician($technician_id, $page, $limit);
+
+        if ($result['data'] && count($result['data']) > 0) {
+            return [
+                "status" => "success",
+                "data" => $result['data'],
+                "count" => count($result['data']),
+                "total" => $result['total'],
+                "page" => $result['page'],
+                "limit" => $result['limit'],
+                "total_pages" => $result['total_pages'],
+                "technician_id" => $technician_id,
+                "pagination" => [
+                    "current_page" => $result['page'],
+                    "per_page" => $result['limit'],
+                    "total" => $result['total'],
+                    "total_pages" => $result['total_pages'],
+                    "has_next" => $result['page'] < $result['total_pages'],
+                    "has_prev" => $result['page'] > 1
+                ]
+            ];
+        } else {
+            return [
+                "status" => "success",
+                "data" => [],
+                "count" => 0,
+                "total" => $result['total'],
+                "page" => $result['page'],
+                "limit" => $result['limit'],
+                "total_pages" => $result['total_pages'],
+                "message" => "No installations found for this technician.",
+                "technician_id" => $technician_id,
+                "pagination" => [
+                    "current_page" => $result['page'],
+                    "per_page" => $result['limit'],
+                    "total" => $result['total'],
+                    "total_pages" => $result['total_pages'],
+                    "has_next" => false,
+                    "has_prev" => false
+                ]
+            ];
         }
     }
     public function update_status($data) {

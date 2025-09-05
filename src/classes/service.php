@@ -154,9 +154,20 @@
         return $result;
         
     }
-    public static function readAllWithDetails() {
+    public static function readAllWithDetails($page = 1, $limit = 10) {
         try {
             $conn = DatabaseConnection::getConnection();
+            
+            // Calculate offset
+            $offset = ($page - 1) * $limit;
+            
+            // Get total count
+            $countSql = "SELECT COUNT(*) as total FROM service sr";
+            $countStmt = $conn->prepare($countSql);
+            $countStmt->execute();
+            $totalCount = $countStmt->fetch(PDO::FETCH_ASSOC)['total'];
+            
+            // Get paginated results with details
             $sql = "
                 SELECT 
                     sr.*, 
@@ -174,14 +185,74 @@
                     users u ON sr.user_id = u.user_id
                 ORDER BY 
                     sr.service_id DESC
+                LIMIT :limit OFFSET :offset
             ";
             $stmt = $conn->prepare($sql);
+            $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
+            $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
             $stmt->execute();
-            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            return [
+                'data' => $results,
+                'total' => $totalCount,
+                'page' => $page,
+                'limit' => $limit,
+                'total_pages' => ceil($totalCount / $limit)
+            ];
         } catch (PDOException $e) {
             error_log("Database error in Service_Reporting::readAllWithDetails: " . $e->getMessage());
             return false;
         }
+    }
+
+    public function readByTechnician($technician_id, $page = 1, $limit = 10) {
+        $conn = DatabaseConnection::getConnection();
+        
+        // Calculate offset
+        $offset = ($page - 1) * $limit;
+        
+        // Get total count
+        $countSql = "SELECT COUNT(*) as total 
+                     FROM service sr 
+                     WHERE sr.user_id = :technician_id";
+        $countStmt = $conn->prepare($countSql);
+        $countStmt->bindParam(':technician_id', $technician_id);
+        $countStmt->execute();
+        $totalCount = $countStmt->fetch(PDO::FETCH_ASSOC)['total'];
+        
+        // Get paginated results with details
+        $sql = "SELECT 
+                    sr.*, 
+                    c.name AS client_name,
+                    b.name AS branch_name,
+                    b.address AS branch_address,
+                    u.username AS username
+                FROM 
+                    service sr
+                LEFT JOIN 
+                    client c ON sr.client_id = c.client_id
+                LEFT JOIN 
+                    branch b ON sr.branch_id = b.branch_id
+                LEFT JOIN 
+                    users u ON sr.user_id = u.user_id
+                WHERE sr.user_id = :technician_id
+                ORDER BY sr.service_id DESC
+                LIMIT :limit OFFSET :offset";
+        $stmt = $conn->prepare($sql);
+        $stmt->bindParam(':technician_id', $technician_id);
+        $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
+        $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
+        $stmt->execute();
+        $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        return [
+            'data' => $results,
+            'total' => $totalCount,
+            'page' => $page,
+            'limit' => $limit,
+            'total_pages' => ceil($totalCount / $limit)
+        ];
     }
 
 }
