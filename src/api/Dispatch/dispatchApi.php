@@ -2,11 +2,11 @@
 class dispatchApi extends ApiResourceBase {
     public function __construct() {
         $this->setRoles([
-            "create_dispatch" => ["admin", "qc_officer"],
-            "read_dispatch" => ["admin", "qc_officer", "user"],
-            "update_dispatch" => ["admin", "qc_officer"],
+            "create_dispatch" => ["admin", "Quality_Checker"],
+            "read_dispatch" => ["admin", "Quality_Checker", "user"],
+            "update_dispatch" => ["admin", "Quality_Checker"],
             "delete_dispatch" => ["admin"],
-            "readAll" => ["admin", "qc_officer", ]
+            "readAll" => ["admin", "Quality_Checker", ]
         ]);
     }
 

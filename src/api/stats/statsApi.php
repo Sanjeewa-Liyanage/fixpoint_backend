@@ -76,12 +76,14 @@ class StatsApi extends ApiResourceBase {
         $latest_repairs = $repairs->fetchAll(PDO::FETCH_ASSOC);
 
         // 4. Latest assigned cluster
-        $clusters = ClusterTechnician::getClustersByTechnician($technician_id);
-        $latest_assigned_cluster = $clusters ? $clusters[count($clusters)-1] : null;
+        $clustersResult = ClusterTechnician::getClustersByTechnician($technician_id, 1, 1);
+        $clusters = $clustersResult['clusters'] ?? [];
+        $latest_assigned_cluster = !empty($clusters) ? $clusters[0] : null;
 
         // 5. Latest done cluster
-        $doneClusters = ClusterTechnician::getAllDoneBranchesByUser($technician_id);
-        $latest_done_cluster = isset($doneClusters['clusters'][0]) ? $doneClusters['clusters'][0] : null;
+        $doneClustersResult = ClusterTechnician::getAllDoneBranchesByUser($technician_id, 1, 1);
+        $doneClusters = $doneClustersResult['clusters'] ?? [];
+        $latest_done_cluster = !empty($doneClusters) ? $doneClusters[0] : null;
 
         // 6. Performance calculation
         // Get all services done by technician, grouped by quarter
@@ -111,7 +113,7 @@ class StatsApi extends ApiResourceBase {
         $installation_count = (int)($installationCountStmt->fetch(PDO::FETCH_ASSOC)['count'] ?? 0);
 
         // Done clusters count
-        $done_clusters_count = isset($doneClusters['clusters']) ? count($doneClusters['clusters']) : 0;
+        $done_clusters_count = $doneClustersResult['pagination']['total_count'] ?? 0;
 
         $performance = [
             'services_by_quarter' => $services_by_quarter,
