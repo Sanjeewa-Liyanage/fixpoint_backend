@@ -1,0 +1,110 @@
+{
+  "method": "GET",
+  "endpoint": "/api/stats/stats/qc_dashboard",
+  "description": "Test QC Dashboard API endpoint to fetch last 5 QC reports, passed/failed CHDM records, and last 5 dispatch records for authenticated user",
+  "headers": {
+    "Authorization": "Bearer YOUR_JWT_TOKEN_HERE",
+    "Content-Type": "application/json"
+  },
+  "expected_response": {
+    "status": "success",
+    "user_info": {
+      "user_id": "integer",
+      "username": "string",
+      "role": "Quality_Checker|admin|technician"
+    },
+    "last_qc_reports": [
+      {
+        "qc_id": "integer",
+        "chdm_id": "integer",
+        "date": "date",
+        "result": "passed|failed",
+        "remarks": "string",
+        "test_details": "string",
+        "serial_no": "string",
+        "location": "string",
+        "chdm_description": "string",
+        "chdm_state": "passed|failed",
+        "qc_officer_name": "string"
+      }
+    ],
+    "passed_chdm": [
+      {
+        "id": "integer",
+        "serial_no": "string", 
+        "state": "passed",
+        "location": "string",
+        "description": "string",
+        "tested_date": "date",
+        "qc_date": "date",
+        "result": "passed",
+        "remarks": "string"
+      }
+    ],
+    "failed_chdm": [
+      {
+        "id": "integer",
+        "serial_no": "string",
+        "state": "failed", 
+        "location": "string",
+        "description": "string",
+        "tested_date": "date",
+        "qc_date": "date",
+        "result": "failed",
+        "remarks": "string"
+      }
+    ],
+    "last_dispatch_records": [
+      {
+        "dispatch_id": "integer",
+        "item_id": "integer",
+        "warehouse_name": "string",
+        "quantity": "integer",
+        "date": "date",
+        "purpose": "string",
+        "status": "string",
+        "item_name": "string",
+        "item_category": "string",
+        "qc_officer_name": "string"
+      }
+    ],
+    "summary": {
+      "qc_reports": {
+        "total": "integer",
+        "passed": "integer", 
+        "failed": "integer",
+        "pass_rate_percentage": "float",
+        "devices_tested": "integer"
+      },
+      "dispatches": {
+        "total": "integer",
+        "total_quantity": "integer",
+        "unique_items": "integer"
+      }
+    }
+  },
+  "error_responses": {
+    "invalid_token": {
+      "status": "error",
+      "message": "Invalid authentication token"
+    },
+    "unauthorized": {
+      "status": "error", 
+      "message": "Unauthorized: Quality Checker, Admin or Technician access required"
+    },
+    "missing_user_id": {
+      "status": "error",
+      "message": "User ID not found in authentication token"
+    }
+  },
+  "test_instructions": {
+    "1": "Replace YOUR_JWT_TOKEN_HERE with a valid JWT token for a Quality Checker, Admin, or Technician user",
+    "2": "Make a GET request to the endpoint with the Authorization header",
+    "3": "Verify that the response contains all expected fields",
+    "4": "Check that last_qc_reports contains only records created by the authenticated user",
+    "5": "Verify that passed_chdm and failed_chdm only show CHDM records that the user has created QC reports for",
+    "6": "Confirm that last_dispatch_records only shows dispatches created by the authenticated user",
+    "7": "Check that summary statistics are calculated correctly for the user's data only"
+  },
+  "curl_example": "curl -X GET 'http://localhost/api/stats/stats/qc_dashboard' -H 'Authorization: Bearer YOUR_JWT_TOKEN_HERE' -H 'Content-Type: application/json'"
+}

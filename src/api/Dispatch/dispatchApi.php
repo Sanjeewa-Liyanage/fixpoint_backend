@@ -6,7 +6,8 @@ class dispatchApi extends ApiResourceBase {
             "read_dispatch" => ["admin", "Quality_Checker", "user"],
             "update_dispatch" => ["admin", "Quality_Checker"],
             "delete_dispatch" => ["admin"],
-            "readAll" => ["admin", "Quality_Checker", ]
+            "readAll" => ["admin", "Quality_Checker"],
+            "view_my_dispatches" => ["admin", "Quality_Checker", "user"]
         ]);
     }
 
@@ -325,6 +326,98 @@ class dispatchApi extends ApiResourceBase {
             ];
         } else {
             return ['status' => 'error', 'message' => 'Failed to retrieve dispatches or none found.'];
+        }
+    }
+
+    public function view_my_dispatches($data = null) {
+        $user = $this->getAuthenticatedUser();
+        if(!$user){
+            return [
+                "status" => "error",
+                "message" => "Invalid or expired token. Please log in again."
+            ];
+        }
+        
+        // Check role permissions
+        if(!$this->checkRoles($user['role_name'], 'view_my_dispatches')){
+            return [
+                "status" => "error",
+                "message" => "Unauthorized: Admin, Quality Checker, or User access required"
+            ];
+        }
+        
+        // Get user ID from token
+        $user_id = null;
+        if (isset($user['user_id'])) {
+            $user_id = $user['user_id'];
+        } elseif (isset($user['id'])) {
+            $user_id = $user['id'];
+        } elseif (isset($user['uid'])) {
+            $user_id = $user['uid'];
+        } else {
+            return [
+                'status' => 'error',
+                'message' => 'Unable to determine user ID from authentication token'
+            ];
+        }
+        
+        // Get pagination parameters with defaults
+        $page = isset($data['page']) ? max(1, intval($data['page'])) : 1;
+        $limit = isset($data['limit']) ? max(1, min(100, intval($data['limit']))) : 10;
+        
+        // Get dispatches for this user with pagination
+        $result = dispatch::getDispatchesByUserPaginated($user_id, $page, $limit);
+        
+        if($result['data'] && count($result['data']) > 0){
+            return [
+                "status" => "success",
+                "message" => "Your dispatches retrieved successfully",
+                "data" => $result['data'],
+                "count" => count($result['data']),
+                "total" => $result['total'],
+                "page" => $result['page'],
+                "limit" => $result['limit'],
+                "total_pages" => $result['total_pages'],
+                "user_id" => $user_id,
+                "user_info" => [
+                    "user_id" => $user_id,
+                    "username" => isset($user['username']) ? $user['username'] : 'Unknown',
+                    "role" => $user['role_name']
+                ],
+                "pagination" => [
+                    "current_page" => $result['page'],
+                    "per_page" => $result['limit'],
+                    "total" => $result['total'],
+                    "total_pages" => $result['total_pages'],
+                    "has_next" => $result['page'] < $result['total_pages'],
+                    "has_prev" => $result['page'] > 1
+                ]
+            ];
+        } else {
+            return [
+                "status" => "success",
+                "message" => "No dispatches found for your account",
+                "data" => [],
+                "count" => 0,
+                "total" => $result['total'],
+                "page" => $result['page'],
+                "limit" => $result['limit'],
+                "total_pages" => $result['total_pages'],
+                "user_id" => $user_id,
+                "user_info" => [
+                    "user_id" => $user_id,
+                    "username" => isset($user['username']) ? $user['username'] : 'Unknown',
+                    "role" => $user['role_name']
+                ],
+                "pagination" => [
+                    "current_page" => $result['page'],
+                    "per_page" => $result['limit'],
+                    "total" => $result['total'],
+                    "total_pages" => $result['total_pages'],
+                    "has_next" => false,
+                    "has_prev" => false
+                ]
+            ];
         }
     }
 }

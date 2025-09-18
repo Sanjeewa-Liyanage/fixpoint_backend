@@ -21,9 +21,184 @@ class StatsApi extends ApiResourceBase {
             'qc_summary' => ['admin','technician'],
             'repair_summary' => ['admin','technician'],
             'inventory_stock_summary' => ['admin','technician'],
-            'technician_dashboard' => ['admin','technician']
+            'technician_dashboard' => ['admin','technician'],
+            'qc_dashboard' => ['admin','Quality_Checker','technician']
         ]);
     }
+
+    /**
+     * GET /api/stats/stats/qc_dashboard
+     * Returns QC dashboard data for the authenticated user
+     * Includes last 5 QC reports, passed/failed CHDM records, and last 5 dispatch records
+     * All data filtered by the authenticated user's created records
+     */
+    public function qc_dashboard($data) {
+        $user = $this->getAuthenticatedUser();
+        if(!$user) {
+            return [
+                "status" => "error",
+                "message" => "Invalid authentication token"
+            ];
+        }
+        
+        $roleName = isset($user['role_name']) ? $user['role_name'] : (isset($user['role']['role_name']) ? $user['role']['role_name'] : null);
+        if(!$this->checkRoles($roleName, 'qc_dashboard')) {
+            return [
+                "status" => "error",
+                "message" => "Unauthorized: Quality Checker, Admin or Technician access required"
+            ];
+        }
+        
+        // Get user ID from token
+        $user_id = null;
+        if (isset($user['user_id'])) {
+            $user_id = $user['user_id'];
+        } elseif (isset($user['id'])) {
+            $user_id = $user['id'];
+        } elseif (isset($user['uid'])) {
+            $user_id = $user['uid'];
+        }
+
+        if (!$user_id) {
+            return [
+                "status" => "error",
+                "message" => "User ID not found in authentication token"
+            ];
+        }
+
+        $conn = DatabaseConnection::getConnection();
+        
+        try {
+            // 1. Last 5 QC reports created by the authenticated user (most recently updated)
+            $qcReportsStmt = $conn->prepare("
+                SELECT qc.qc_id, qc.chdm_id, qc.date, qc.result, qc.remarks, qc.test_details,
+                       c.serial_no, c.location, c.description as chdm_description, c.state as chdm_state,
+                       u.username as qc_officer_name
+                FROM quality_check qc
+                LEFT JOIN chdm c ON qc.chdm_id = c.id
+                LEFT JOIN users u ON qc.qc_officer_id = u.user_id
+                WHERE qc.qc_officer_id = :user_id
+                ORDER BY qc.date DESC, qc.qc_id DESC
+                LIMIT 5
+            ");
+            $qcReportsStmt->bindParam(':user_id', $user_id, PDO::PARAM_INT);
+            $qcReportsStmt->execute();
+            $lastQcReports = $qcReportsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // 2. Passed CHDM records related to user's QC reports
+            $passedChdmStmt = $conn->prepare("
+                SELECT c.id, c.serial_no, c.state, c.location, c.description, c.tested_date,
+                       qc.date as qc_date, qc.result, qc.remarks
+                FROM chdm c
+                INNER JOIN quality_check qc ON c.id = qc.chdm_id
+                WHERE qc.qc_officer_id = :user_id AND c.state = 'passed'
+                ORDER BY qc.date DESC, c.tested_date DESC
+                LIMIT 10
+            ");
+            $passedChdmStmt->bindParam(':user_id', $user_id, PDO::PARAM_INT);
+            $passedChdmStmt->execute();
+            $passedChdm = $passedChdmStmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // 3. Failed CHDM records related to user's QC reports
+            $failedChdmStmt = $conn->prepare("
+                SELECT c.id, c.serial_no, c.state, c.location, c.description, c.tested_date,
+                       qc.date as qc_date, qc.result, qc.remarks
+                FROM chdm c
+                INNER JOIN quality_check qc ON c.id = qc.chdm_id
+                WHERE qc.qc_officer_id = :user_id AND c.state = 'failed'
+                ORDER BY qc.date DESC, c.tested_date DESC
+                LIMIT 10
+            ");
+            $failedChdmStmt->bindParam(':user_id', $user_id, PDO::PARAM_INT);
+            $failedChdmStmt->execute();
+            $failedChdm = $failedChdmStmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // 4. Last 5 dispatch records created by the authenticated user
+            $dispatchStmt = $conn->prepare("
+                SELECT d.dispatch_id, d.item_id, d.warehouse_name, d.quantity, d.date, 
+                       d.purpose, d.status,
+                       i.item_name, i.category as item_category,
+                       u.username as qc_officer_name
+                FROM dispatch d
+                LEFT JOIN inventory_item i ON d.item_id = i.item_id
+                LEFT JOIN users u ON d.qc_officer_id = u.user_id
+                WHERE d.qc_officer_id = :user_id
+                ORDER BY d.date DESC, d.dispatch_id DESC
+                LIMIT 5
+            ");
+            $dispatchStmt->bindParam(':user_id', $user_id, PDO::PARAM_INT);
+            $dispatchStmt->execute();
+            $lastDispatchRecords = $dispatchStmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // 5. Summary statistics for the user
+            $summaryStmt = $conn->prepare("
+                SELECT 
+                    COUNT(DISTINCT qc.qc_id) as total_qc_reports,
+                    SUM(CASE WHEN qc.result = 'passed' THEN 1 ELSE 0 END) as passed_count,
+                    SUM(CASE WHEN qc.result = 'failed' THEN 1 ELSE 0 END) as failed_count,
+                    COUNT(DISTINCT qc.chdm_id) as total_devices_tested
+                FROM quality_check qc
+                WHERE qc.qc_officer_id = :user_id
+            ");
+            $summaryStmt->bindParam(':user_id', $user_id, PDO::PARAM_INT);
+            $summaryStmt->execute();
+            $qcSummary = $summaryStmt->fetch(PDO::FETCH_ASSOC);
+
+            // 6. Dispatch summary for the user
+            $dispatchSummaryStmt = $conn->prepare("
+                SELECT 
+                    COUNT(DISTINCT d.dispatch_id) as total_dispatches,
+                    SUM(d.quantity) as total_quantity_dispatched,
+                    COUNT(DISTINCT d.item_id) as unique_items_dispatched
+                FROM dispatch d
+                WHERE d.qc_officer_id = :user_id
+            ");
+            $dispatchSummaryStmt->bindParam(':user_id', $user_id, PDO::PARAM_INT);
+            $dispatchSummaryStmt->execute();
+            $dispatchSummary = $dispatchSummaryStmt->fetch(PDO::FETCH_ASSOC);
+
+            // Calculate pass rate
+            $totalReports = (int)$qcSummary['total_qc_reports'];
+            $passedCount = (int)$qcSummary['passed_count'];
+            $passRate = $totalReports > 0 ? round(($passedCount / $totalReports) * 100, 2) : 0;
+
+            return [
+                'status' => 'success',
+                'user_info' => [
+                    'user_id' => $user_id,
+                    'username' => isset($user['username']) ? $user['username'] : 'Unknown',
+                    'role' => $roleName
+                ],
+                'last_qc_reports' => $lastQcReports,
+                'passed_chdm' => $passedChdm,
+                'failed_chdm' => $failedChdm,
+                'last_dispatch_records' => $lastDispatchRecords,
+                'summary' => [
+                    'qc_reports' => [
+                        'total' => $totalReports,
+                        'passed' => $passedCount,
+                        'failed' => (int)$qcSummary['failed_count'],
+                        'pass_rate_percentage' => $passRate,
+                        'devices_tested' => (int)$qcSummary['total_devices_tested']
+                    ],
+                    'dispatches' => [
+                        'total' => (int)$dispatchSummary['total_dispatches'],
+                        'total_quantity' => (int)$dispatchSummary['total_quantity_dispatched'],
+                        'unique_items' => (int)$dispatchSummary['unique_items_dispatched']
+                    ]
+                ]
+            ];
+
+        } catch(Exception $e) {
+            return [
+                'status' => 'error',
+                'message' => 'QC Dashboard error: ' . $e->getMessage()
+            ];
+        }
+    }
+
+    
+
     /**
      * GET /api/stats/stats/technician_dashboard
      * Returns dashboard data for the authenticated technician
