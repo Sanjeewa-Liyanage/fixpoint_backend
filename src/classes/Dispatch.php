@@ -79,6 +79,91 @@ class dispatch extends Model {
         return $dispatches;
     }
 
+    static public function getDispatchesByUser($user_id) {
+        $conn = DatabaseConnection::getConnection();
+        
+        $sql = "SELECT 
+                    d.dispatch_id, 
+                    d.item_id, 
+                    d.warehouse_name, 
+                    d.quantity, 
+                    d.date, 
+                    d.purpose, 
+                    d.status, 
+                    i.item_name, 
+                    u.username AS qc_officer_name
+                FROM 
+                    dispatch d
+                LEFT JOIN 
+                    inventory_item i ON d.item_id = i.item_id
+                LEFT JOIN 
+                    users u ON d.qc_officer_id = u.user_id
+                WHERE 
+                    d.qc_officer_id = :user_id
+                ORDER BY 
+                    d.date DESC, d.dispatch_id DESC";
+                    
+        $stmt = $conn->prepare($sql);
+        $stmt->bindParam(":user_id", $user_id, PDO::PARAM_INT);
+        $stmt->execute();
+        $dispatches = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return $dispatches;
+    }
+
+    static public function getDispatchesByUserPaginated($user_id, $page = 1, $limit = 10) {
+        $conn = DatabaseConnection::getConnection();
+        
+        // Calculate offset
+        $offset = ($page - 1) * $limit;
+        
+        // Get total count
+        $countSql = "SELECT COUNT(*) as total 
+                     FROM dispatch d 
+                     WHERE d.qc_officer_id = :user_id";
+        $countStmt = $conn->prepare($countSql);
+        $countStmt->bindParam(':user_id', $user_id, PDO::PARAM_INT);
+        $countStmt->execute();
+        $totalCount = $countStmt->fetch(PDO::FETCH_ASSOC)['total'];
+        
+        // Get paginated results
+        $sql = "SELECT 
+                    d.dispatch_id, 
+                    d.item_id, 
+                    d.warehouse_name, 
+                    d.quantity, 
+                    d.date, 
+                    d.purpose, 
+                    d.status, 
+                    i.item_name, 
+                    u.username AS qc_officer_name
+                FROM 
+                    dispatch d
+                LEFT JOIN 
+                    inventory_item i ON d.item_id = i.item_id
+                LEFT JOIN 
+                    users u ON d.qc_officer_id = u.user_id
+                WHERE 
+                    d.qc_officer_id = :user_id
+                ORDER BY 
+                    d.date DESC, d.dispatch_id DESC
+                LIMIT :limit OFFSET :offset";
+                    
+        $stmt = $conn->prepare($sql);
+        $stmt->bindParam(':user_id', $user_id, PDO::PARAM_INT);
+        $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
+        $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
+        $stmt->execute();
+        $dispatches = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        return [
+            'data' => $dispatches,
+            'total' => $totalCount,
+            'page' => $page,
+            'limit' => $limit,
+            'total_pages' => ceil($totalCount / $limit)
+        ];
+    }
+
     public function update() {
         $conn = DatabaseConnection::getConnection();
         $sql = "UPDATE dispatch SET item_id = :item_id, qc_officer_id = :qc_officer_id, warehouse_name = :warehouse_name, quantity = :quantity, date = :date, purpose = :purpose, status = :status WHERE dispatch_id = :dispatch_id";
