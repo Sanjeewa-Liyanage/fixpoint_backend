@@ -79,6 +79,54 @@ class dispatch extends Model {
         return $dispatches;
     }
 
+    static public function readAllPaginated($page = 1, $limit = 10) {
+        $conn = DatabaseConnection::getConnection();
+        
+        // Calculate offset
+        $offset = ($page - 1) * $limit;
+        
+        // Get total count
+        $countSql = "SELECT COUNT(*) as total FROM dispatch d";
+        $countStmt = $conn->prepare($countSql);
+        $countStmt->execute();
+        $totalCount = $countStmt->fetch(PDO::FETCH_ASSOC)['total'];
+        
+        // Get paginated results
+        $sql = "SELECT 
+                    d.dispatch_id, 
+                    d.item_id, 
+                    d.warehouse_name, 
+                    d.quantity, 
+                    d.date, 
+                    d.purpose, 
+                    d.status, 
+                    i.item_name, 
+                    COALESCE(u.username, 'Not Assigned') AS qc_officer_name
+                FROM 
+                    dispatch d
+                LEFT JOIN 
+                    inventory_item i ON d.item_id = i.item_id
+                LEFT JOIN 
+                    users u ON d.qc_officer_id = u.user_id
+                ORDER BY 
+                    d.date DESC, d.dispatch_id DESC
+                LIMIT :limit OFFSET :offset";
+                    
+        $stmt = $conn->prepare($sql);
+        $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
+        $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
+        $stmt->execute();
+        $dispatches = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        return [
+            'data' => $dispatches,
+            'total' => $totalCount,
+            'page' => $page,
+            'limit' => $limit,
+            'total_pages' => ceil($totalCount / $limit)
+        ];
+    }
+
     static public function getDispatchesByUser($user_id) {
         $conn = DatabaseConnection::getConnection();
         

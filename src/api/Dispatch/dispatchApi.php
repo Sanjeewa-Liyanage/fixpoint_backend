@@ -307,25 +307,57 @@ class dispatchApi extends ApiResourceBase {
         }
     }
 
-    public function readAll() {
+    public function readAll($data = null) {
         $user = $this->getAuthenticatedUser();
         if (!$user || !$this->checkRoles($user['role_name'], 'readAll')) {
             return ['status' => 'error', 'message' => 'Unauthorized'];
         }
 
-        // Call the static readAll method from the dispatch model.
-        // This now returns an array with 'qc_officer_name' instead of 'qc_officer_id'.
-        $dispatches = dispatch::readAll();
+        // Get pagination parameters with defaults
+        $page = isset($data['page']) ? max(1, intval($data['page'])) : 1;
+        $limit = isset($data['limit']) ? max(1, min(100, intval($data['limit']))) : 10;
 
-        // The model already returns a clean array. We can just return it directly.
-        // The previous normalization loop was the source of the error.
-        if ($dispatches !== false) { // PDO::fetchAll returns false on failure
+        // Use paginated readAll method from the dispatch model
+        $result = dispatch::readAllPaginated($page, $limit);
+
+        if ($result['data'] !== false && is_array($result['data'])) {
             return [
                 'status' => 'success',
-                'data' => $dispatches
+                'message' => 'Dispatches retrieved successfully',
+                'data' => $result['data'],
+                'count' => count($result['data']),
+                'total' => $result['total'],
+                'page' => $result['page'],
+                'limit' => $result['limit'],
+                'total_pages' => $result['total_pages'],
+                'pagination' => [
+                    'current_page' => $result['page'],
+                    'per_page' => $result['limit'],
+                    'total' => $result['total'],
+                    'total_pages' => $result['total_pages'],
+                    'has_next' => $result['page'] < $result['total_pages'],
+                    'has_prev' => $result['page'] > 1
+                ]
             ];
         } else {
-            return ['status' => 'error', 'message' => 'Failed to retrieve dispatches or none found.'];
+            return [
+                'status' => 'success',
+                'message' => 'No dispatches found',
+                'data' => [],
+                'count' => 0,
+                'total' => $result['total'],
+                'page' => $result['page'],
+                'limit' => $result['limit'],
+                'total_pages' => $result['total_pages'],
+                'pagination' => [
+                    'current_page' => $result['page'],
+                    'per_page' => $result['limit'],
+                    'total' => $result['total'],
+                    'total_pages' => $result['total_pages'],
+                    'has_next' => false,
+                    'has_prev' => false
+                ]
+            ];
         }
     }
 
