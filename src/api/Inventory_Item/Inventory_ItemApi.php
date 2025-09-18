@@ -8,9 +8,7 @@ class Inventory_ItemApi extends ApiResourceBase  {
             "read" => ['admin', 'technician', 'Quality_Checker'],
             "readAll" => ['admin', 'technician', 'Quality_Checker'],
             "update" => ['admin', 'technician', 'Quality_Checker'],
-
             "search" => ['admin', 'technician', 'Quality_Checker'],
-
             "updateAll" => ['admin', 'technician', 'Quality_Checker'],
             "delete" => ['admin']
 

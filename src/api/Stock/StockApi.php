@@ -4,11 +4,11 @@ require_once 'src/utils/JwtHandler.php';
 class StockApi extends ApiResourceBase {
     public function __construct() {
         $this->setRoles([
-            "create" => ['admin', 'technician', 'Quality Checker'],
-            "read" => ['admin', 'technician', 'Quality Checker'],
-            "readAll" => ['admin', 'technician', 'Quality Checker'],
-            "update" => ['admin', 'technician', 'Quality Checker'],
-            "updateAll" => ['admin', 'technician', 'Quality Checker'],
+            "create" => ['admin', 'technician', 'Quality_Checker'],
+            "read" => ['admin', 'technician', 'Quality_Checker'],
+            "readAll" => ['admin', 'technician', 'Quality_Checker'],
+            "update" => ['admin', 'technician', 'Quality_Checker'],
+            "updateAll" => ['admin', 'technician', 'Quality_Checker'],
 
             "delete" => ['admin']
         ]);
