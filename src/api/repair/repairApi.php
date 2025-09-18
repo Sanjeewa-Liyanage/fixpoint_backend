@@ -358,10 +358,78 @@ class RepairApi extends ApiResourceBase {
         $success = $repair->updateAll();
 
         if ($success) {
-            return [
+            $emailResult = null;
+            
+            // Send repair completion email if status is completed or closed
+            if (in_array(strtolower($data['status'] ?? ''), ['completed', 'closed'])) {
+                try {
+                    error_log("Starting repair completion email process for repair_id: " . ($data['repair_id'] ?? 'NULL'));
+                    
+                    // Get branch information
+                    $branchData = Branch::getById($data['branch_id']);
+                    if ($branchData && !empty($branchData['email'])) {
+                        error_log("Branch found: " . $branchData['name'] . " - Email: " . $branchData['email']);
+
+                        // Get client information
+                        $clientData = null;
+                        if (isset($branchData['client_id'])) {
+                            $clientData = Client::getById($branchData['client_id']);
+                        }
+                        if (!$clientData) {
+                            // If no client found via branch, create a default client data
+                            $clientData = ['name' => $branchData['name'] ?? 'N/A'];
+                        }
+                        
+                        // Get technician information
+                        $technicianData = ['username' => $user['username'] ?? 'N/A'];
+                        
+                        // Prepare repair data for email
+                        $repairData = [
+                            'repair_id' => $data['repair_id'],
+                            'device_type' => $data['device_type'],
+                            'device_id' => $data['device_id'],
+                            'start_time' => $data['start_time'],
+                            'end_time' => $data['end_time'],
+                            'status' => $data['status'],
+                            'summary' => $data['summary'],
+                            'backup_sent' => $data['backup_sent'] ?? 'false',
+                            'visit_required' => $data['visit_required'] ?? 'false'
+                        ];
+                        
+                        // Configure email service
+                        $connectionString = "endpoint=https://fixpoit-mailler.unitedstates.communication.azure.com/;accesskey=DlCOIqLviNq3RKnhC10g61vOZ46nN3qtE4a3DR5IRke2vLzHJ6jnJQQJ99BHACULyCpQCLZ2AAAAAZCSSthx";
+                        $senderAddress = "DoNotReply@1150820c-c077-40e5-bf54-90e4e6adcb7e.azurecomm.net";
+                        \Fixpoint\Utils\AzureEmailService::configure($connectionString, $senderAddress);
+                        
+                        error_log("Sending repair completion email to: " . $branchData['email']);
+                        $emailResult = \Fixpoint\Utils\AzureEmailService::sendRepairCompletionEmail(
+                            $branchData['email'],
+                            $repairData,
+                            $branchData,
+                            $clientData,
+                            $technicianData
+                        );
+
+                        error_log("Repair completion email result: " . json_encode($emailResult));
+                    } else {
+                        error_log("Branch not found or email not available for branch_id: " . ($data['branch_id'] ?? 'NULL'));
+                    }
+                } catch (\Exception $e) {
+                    error_log("Error sending repair completion email: " . $e->getMessage());
+                    // Don't fail the update if email fails
+                }
+            }
+
+            $response = [
                 "status" => "success",
                 "message" => "Repair updated successfully with all fields."
             ];
+
+            if ($emailResult && isset($emailResult['success'])) {
+                $response['email_status'] = $emailResult;
+            }
+
+            return $response;
         } else {
             return [
                 "status" => "error",

@@ -404,6 +404,88 @@ HTML;
     }
 
     /**
+     * Send a repair completion email to a branch (invoice-style)
+     * @param string $recipientEmail The branch email address
+     * @param array $repairData Repair completion data
+     * @param array $branchData Branch information
+     * @param array $clientData Client information
+     * @param array $technicianData Technician information
+     * @return array Result with success/error status
+     */
+    public static function sendRepairCompletionEmail(
+        string $recipientEmail,
+        array $repairData,
+        array $branchData,
+        array $clientData,
+        array $technicianData
+    ): array {
+        try {
+            self::ensureConfigured();
+
+            $subject = 'Repair Completion Report - ' . ($branchData['name'] ?? 'Branch') . ' - Device: ' . ($repairData['device_id'] ?? 'N/A');
+            $htmlContent = self::buildRepairCompletionHtml($repairData, $branchData, $clientData, $technicianData);
+
+            $emailData = [
+                'senderAddress' => self::$senderAddress,
+                'content' => [
+                    'subject' => $subject,
+                    'html' => $htmlContent,
+                ],
+                'recipients' => [
+                    'to' => [
+                        [
+                            'address' => $recipientEmail,
+                            'displayName' => $branchData['contact_person'] ?? 'Branch Manager'
+                        ]
+                    ]
+                ]
+            ];
+
+            $path = '/emails:send';
+            $result = self::performRequest('POST', $path, $emailData);
+
+            $statusCode = $result['statusCode'] ?? null;
+            $headers = $result['headers'] ?? [];
+            $rawBody = $result['rawBody'] ?? '';
+            $json = $result['json'] ?? null;
+
+            if ($statusCode && $statusCode >= 200 && $statusCode < 300) {
+                return [
+                    'success' => true,
+                    'message' => 'Repair completion email queued for delivery',
+                    'statusCode' => $statusCode,
+                    'requestId' => $headers['x-ms-request-id'][0] ?? null,
+                    'operationLocation' => $headers['Operation-Location'][0] ?? ($headers['operation-location'][0] ?? null),
+                    'rawBody' => $rawBody,
+                    'responseJson' => $json,
+                ];
+            }
+
+            $errorMsg = 'HTTP ' . ($statusCode ?? 'unknown') . ': ' . ($rawBody !== '' ? $rawBody : 'No response body');
+            error_log("Repair completion email failed: " . $errorMsg);
+            return [
+                'success' => false,
+                'message' => 'Failed to send repair completion email: ' . $errorMsg,
+                'statusCode' => $statusCode,
+                'rawBody' => $rawBody,
+            ];
+
+        } catch (\RuntimeException $e) {
+            error_log('Repair completion email RuntimeException: ' . $e->getMessage());
+            return [
+                'success' => false,
+                'message' => 'Email service error: ' . $e->getMessage()
+            ];
+        } catch (\Exception $e) {
+            error_log('Repair completion email Exception: ' . $e->getMessage());
+            return [
+                'success' => false,
+                'message' => 'Unexpected error: ' . $e->getMessage()
+            ];
+        }
+    }
+
+    /**
      * Send a service report email to a branch (invoice-style)
      * @param string $recipientEmail The branch email address
      * @param array $serviceData Service report data
@@ -484,6 +566,188 @@ HTML;
                 'message' => 'Unexpected error: ' . $e->getMessage()
             ];
         }
+    }
+
+    /**
+     * Build HTML content for repair completion email (invoice style)
+     * @param array $repairData Repair completion data
+     * @param array $branchData Branch information
+     * @param array $clientData Client information
+     * @param array $technicianData Technician information
+     * @return string HTML content
+     */
+    private static function buildRepairCompletionHtml(
+        array $repairData,
+        array $branchData,
+        array $clientData,
+        array $technicianData
+    ): string {
+        $year = date('Y');
+        $completionDate = date('F d, Y', strtotime($repairData['end_time'] ?? 'now'));
+        $startDate = date('F d, Y', strtotime($repairData['start_time'] ?? 'now'));
+        $currentDate = date('F d, Y');
+        $reportNumber = 'RP-' . str_pad($repairData['repair_id'] ?? rand(1000, 9999), 3, '0', STR_PAD_LEFT);
+        
+        // Escape all data for HTML
+        $branchName = htmlspecialchars($branchData['name'] ?? 'N/A', ENT_QUOTES, 'UTF-8');
+        $branchAddress = htmlspecialchars($branchData['address'] ?? 'N/A', ENT_QUOTES, 'UTF-8');
+        $branchContact = htmlspecialchars($branchData['contact_person'] ?? 'N/A', ENT_QUOTES, 'UTF-8');
+        $branchPhone = htmlspecialchars($branchData['phone'] ?? 'N/A', ENT_QUOTES, 'UTF-8');
+        $branchEmail = htmlspecialchars($branchData['email'] ?? 'N/A', ENT_QUOTES, 'UTF-8');
+        $clientName = htmlspecialchars($clientData['name'] ?? 'N/A', ENT_QUOTES, 'UTF-8');
+        $technicianName = htmlspecialchars($technicianData['username'] ?? 'N/A', ENT_QUOTES, 'UTF-8');
+        $deviceType = htmlspecialchars(ucfirst(str_replace('_', ' ', $repairData['device_type'] ?? 'N/A')), ENT_QUOTES, 'UTF-8');
+        $deviceId = htmlspecialchars($repairData['device_id'] ?? 'N/A', ENT_QUOTES, 'UTF-8');
+        $status = htmlspecialchars(ucfirst($repairData['status'] ?? 'N/A'), ENT_QUOTES, 'UTF-8');
+        $summary = htmlspecialchars($repairData['summary'] ?? 'No additional notes', ENT_QUOTES, 'UTF-8');
+        $backupSent = ($repairData['backup_sent'] ?? 'false') === 'true' ? 'YES' : 'NO';
+        $visitRequired = ($repairData['visit_required'] ?? 'false') === 'true' ? 'YES' : 'NO';
+        
+        return <<<HTML
+<div style="font-family: Arial, sans-serif; background: #ffffff; padding: 20px; max-width: 800px; margin: 0 auto;">
+  <!-- Header -->
+  <div style="border: 2px solid #333333; margin-bottom: 20px;">
+    <div style="background: #e8f4f8; padding: 15px; border-bottom: 1px solid #333333; display: flex; justify-content: space-between; align-items: center;">
+      <div>
+        <h1 style="margin: 0; font-size: 24px; font-weight: bold; color: #333333;">REPAIR COMPLETION REPORT</h1>
+        <p style="margin: 5px 0 0 0; font-size: 14px; color: #666666;">FIXPOINT REPAIR MANAGEMENT</p>
+      </div>
+      <div style="text-align: right;">
+        <img src="https://sahqlmlmflamaghbwkin.supabase.co/storage/v1/object/public/images/faviccon.ico" alt="FixPoint Logo" style="width: 50px; height: 50px;" />
+      </div>
+    </div>
+  </div>
+
+  <!-- Company and Bill To Section -->
+  <div style="display: flex; margin-bottom: 20px;">
+    <!-- Company/Service Provider -->
+    <div style="flex: 1; margin-right: 20px;">
+      <h3 style="margin: 0 0 10px 0; font-size: 14px; font-weight: bold; color: #333333;">SERVICE PROVIDER</h3>
+      <div style="font-size: 12px; line-height: 1.4; color: #333333;">
+        <strong>Name:</strong> FixPoint Solutions<br>
+        <strong>Address:</strong> Colombo, Sri Lanka<br>
+        <strong>Phone:</strong> +94 XX XXX XXXX<br>
+        <strong>Email:</strong> service@fixpoint.lk
+      </div>
+    </div>
+
+    <!-- Bill To -->
+    <div style="flex: 1; margin-right: 20px;">
+      <h3 style="margin: 0 0 10px 0; font-size: 14px; font-weight: bold; color: #333333;">BILL TO</h3>
+      <div style="font-size: 12px; line-height: 1.4; color: #333333;">
+        <strong>Client:</strong> {$clientName}<br>
+        <strong>Branch:</strong> {$branchName}<br>
+        <strong>Address:</strong> {$branchAddress}<br>
+        <strong>Contact:</strong> {$branchContact}<br>
+        <strong>Phone:</strong> {$branchPhone}<br>
+        <strong>Email:</strong> {$branchEmail}
+      </div>
+    </div>
+
+    <!-- Details -->
+    <div style="flex: 1;">
+      <h3 style="margin: 0 0 10px 0; font-size: 14px; font-weight: bold; color: #333333;">DETAILS</h3>
+      <table style="width: 100%; font-size: 12px;">
+        <tr>
+          <td style="border: 1px solid #333333; padding: 5px; background: #f0f0f0; font-weight: bold;">Report Date</td>
+          <td style="border: 1px solid #333333; padding: 5px;">{$currentDate}</td>
+        </tr>
+        <tr>
+          <td style="border: 1px solid #333333; padding: 5px; background: #f0f0f0; font-weight: bold;">Report #</td>
+          <td style="border: 1px solid #333333; padding: 5px;">{$reportNumber}</td>
+        </tr>
+        <tr>
+          <td style="border: 1px solid #333333; padding: 5px; background: #f0f0f0; font-weight: bold;">Start Date</td>
+          <td style="border: 1px solid #333333; padding: 5px;">{$startDate}</td>
+        </tr>
+        <tr>
+          <td style="border: 1px solid #333333; padding: 5px; background: #f0f0f0; font-weight: bold;">Completion Date</td>
+          <td style="border: 1px solid #333333; padding: 5px;">{$completionDate}</td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- Repair Details Table -->
+  <div style="margin-bottom: 20px;">
+    <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+      <thead>
+        <tr>
+          <th style="border: 1px solid #333333; padding: 10px; background: #d4e6f1; font-weight: bold; text-align: left;">REPAIR DESCRIPTION</th>
+          <th style="border: 1px solid #333333; padding: 10px; background: #e8daef; font-weight: bold; text-align: center; width: 15%;">DEVICE</th>
+          <th style="border: 1px solid #333333; padding: 10px; background: #fadbd8; font-weight: bold; text-align: center; width: 20%;">DEVICE ID</th>
+          <th style="border: 1px solid #333333; padding: 10px; background: #d5f4e6; font-weight: bold; text-align: center; width: 15%;">STATUS</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="border: 1px solid #333333; padding: 10px; vertical-align: top;">
+            <strong>Device Type:</strong> {$deviceType}<br>
+            <strong>Device ID:</strong> {$deviceId}<br>
+            <strong>Technician:</strong> {$technicianName}<br><br>
+            <strong>Repair Summary:</strong><br>
+            {$summary}<br><br>
+            <strong>Backup Device Sent:</strong> {$backupSent}<br>
+            <strong>Site Visit Required:</strong> {$visitRequired}
+          </td>
+          <td style="border: 1px solid #333333; padding: 10px; text-align: center; vertical-align: top;">
+            {$deviceType}
+          </td>
+          <td style="border: 1px solid #333333; padding: 10px; text-align: center; vertical-align: top;">
+            {$deviceId}
+          </td>
+          <td style="border: 1px solid #333333; padding: 10px; text-align: center; vertical-align: top;">
+            <span style="background: #d4edda; color: #155724; padding: 5px 10px; border-radius: 3px; font-weight: bold;">{$status}</span>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Summary Section -->
+  <div style="display: flex; margin-bottom: 20px;">
+    <!-- Notes Section -->
+    <div style="flex: 2; margin-right: 20px;">
+      <h3 style="margin: 0 0 10px 0; font-size: 14px; font-weight: bold; color: #333333;">REPAIR NOTES</h3>
+      <div style="border: 1px solid #333333; padding: 15px; min-height: 100px; background: #fafafa;">
+        <p style="margin: 0; font-size: 12px; color: #333333;">
+          Repair has been completed successfully by our technical team.
+          All issues have been resolved and the device has been tested to ensure proper functionality.
+          This repair completion report has been automatically generated and logged in our system.
+        </p>
+      </div>
+    </div>
+
+    <!-- Summary Totals -->
+    <div style="flex: 1;">
+      <table style="width: 100%; font-size: 12px;">
+        <tr>
+          <td style="border: 1px solid #333333; padding: 8px; background: #f0f0f0; font-weight: bold;">REPAIR STATUS</td>
+          <td style="border: 1px solid #333333; padding: 8px; text-align: right; background: #d4edda; color: #155724; font-weight: bold;">{$status}</td>
+        </tr>
+        <tr>
+          <td style="border: 1px solid #333333; padding: 8px; background: #f0f0f0; font-weight: bold;">BACKUP SENT</td>
+          <td style="border: 1px solid #333333; padding: 8px; text-align: right;">{$backupSent}</td>
+        </tr>
+        <tr>
+          <td style="border: 1px solid #333333; padding: 8px; background: #f0f0f0; font-weight: bold;">TECHNICIAN</td>
+          <td style="border: 1px solid #333333; padding: 8px; text-align: right;">{$technicianName}</td>
+        </tr>
+        <tr style="background: #e8f4f8;">
+          <td style="border: 2px solid #333333; padding: 10px; font-weight: bold; font-size: 14px;">REPORT STATUS</td>
+          <td style="border: 2px solid #333333; padding: 10px; text-align: right; font-weight: bold; font-size: 14px; color: #155724;">FINAL</td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div style="text-align: center; font-size: 10px; color: #666666; margin-top: 30px; border-top: 1px solid #cccccc; padding-top: 15px;">
+    <p style="margin: 0;">This is an automated repair completion report generated by FixPoint® Repair Management System</p>
+    <p style="margin: 5px 0 0 0;">© {$year} FixPoint Solutions. All rights reserved. | Report generated on {$currentDate}</p>
+  </div>
+</div>
+HTML;
     }
 
     /**
