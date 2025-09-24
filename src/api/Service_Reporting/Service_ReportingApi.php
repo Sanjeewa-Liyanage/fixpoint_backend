@@ -442,37 +442,41 @@ public function update_service_reports($data) {
         
         error_log("getClusterForBranch: Looking for branch {$branchId}, user {$userId}, quarter {$quarter}");
         
-        $technicianClusters = ClusterTechnician::getClustersByTechnician($userId);
+        $technicianClustersResult = ClusterTechnician::getClustersByTechnician($userId);
         
-        if (!$technicianClusters) {
+        if (!$technicianClustersResult || !isset($technicianClustersResult['clusters'])) {
             error_log("No clusters found for technician {$userId}");
             return null;
         }
         
+        $technicianClusters = $technicianClustersResult['clusters'];
         error_log("Found " . count($technicianClusters) . " total clusters for technician {$userId}");
         
         foreach ($technicianClusters as $cluster) {
-            error_log("Checking cluster {$cluster['cluster_id']} with quarter {$cluster['quarter']} (looking for quarter {$quarter})");
+            $clusterId = isset($cluster['cluster_id']) ? $cluster['cluster_id'] : 'unknown';
+            $clusterQuarter = isset($cluster['quarter']) ? $cluster['quarter'] : 'unknown';
+            
+            error_log("Checking cluster {$clusterId} with quarter {$clusterQuarter} (looking for quarter {$quarter})");
             
             // Match by quarter - this is crucial for proper cluster identification
-            if ($quarter !== null && $cluster['quarter'] != $quarter) {
-                error_log("Skipping cluster {$cluster['cluster_id']} - quarter mismatch ({$cluster['quarter']} != {$quarter})");
+            if ($quarter !== null && isset($cluster['quarter']) && $cluster['quarter'] != $quarter) {
+                error_log("Skipping cluster {$clusterId} - quarter mismatch ({$clusterQuarter} != {$quarter})");
                 continue;
             }
             
-            $clusterBranches = $cluster['cluster_branches'];
+            $clusterBranches = isset($cluster['cluster_branches']) ? $cluster['cluster_branches'] : [];
             if (is_array($clusterBranches)) {
                 $branchIds = array_map(function($branch) {
                     return isset($branch['branch_id']) ? $branch['branch_id'] : 'unknown';
                 }, $clusterBranches);
-                error_log("Cluster {$cluster['cluster_id']} contains branches: " . implode(', ', $branchIds));
+                error_log("Cluster {$clusterId} contains branches: " . implode(', ', $branchIds));
                 
                 foreach ($clusterBranches as $branch) {
                     if (isset($branch['branch_id']) && $branch['branch_id'] == $branchId) {
-                        error_log("Found branch {$branchId} in cluster {$cluster['cluster_id']} with quarter {$cluster['quarter']}");
+                        error_log("Found branch {$branchId} in cluster {$clusterId} with quarter {$clusterQuarter}");
                         return [
-                            'cluster_id' => $cluster['cluster_id'],
-                            'quarter' => $cluster['quarter'],
+                            'cluster_id' => isset($cluster['cluster_id']) ? $cluster['cluster_id'] : null,
+                            'quarter' => isset($cluster['quarter']) ? $cluster['quarter'] : null,
                             'routine_id' => $cluster['routine_id'],
                             'date' => $cluster['date'],
                             'total_branches' => count($clusterBranches),
@@ -482,7 +486,7 @@ public function update_service_reports($data) {
                     }
                 }
             } else {
-                error_log("Invalid cluster_branches data for cluster {$cluster['cluster_id']}");
+                error_log("Invalid cluster_branches data for cluster {$clusterId}");
             }
         }
         
@@ -523,9 +527,9 @@ public function update_service_reports($data) {
             ];
         }
         
-        $clusters = ClusterTechnician::getClustersByTechnician($userId);
+        $clustersResult = ClusterTechnician::getClustersByTechnician($userId);
         
-        if (!$clusters) {
+        if (!$clustersResult || !isset($clustersResult['clusters'])) {
             return [
                 'status' => 'success',
                 'message' => 'No clusters found for this technician',
@@ -533,17 +537,19 @@ public function update_service_reports($data) {
             ];
         }
         
+        $clusters = $clustersResult['clusters'];
+        
         // Filter by quarter if specified
         if ($quarter !== null) {
             $clusters = array_filter($clusters, function($cluster) use ($quarter) {
-                return $cluster['quarter'] == $quarter;
+                return isset($cluster['quarter']) && $cluster['quarter'] == $quarter;
             });
         }
         
         // Add additional information to each cluster
         $enhancedClusters = array_map(function($cluster) {
-            $cluster['total_branches'] = is_array($cluster['cluster_branches']) ? count($cluster['cluster_branches']) : 0;
-            $cluster['quarter_display'] = 'Q' . $cluster['quarter'];
+            $cluster['total_branches'] = isset($cluster['cluster_branches']) && is_array($cluster['cluster_branches']) ? count($cluster['cluster_branches']) : 0;
+            $cluster['quarter_display'] = 'Q' . (isset($cluster['quarter']) ? $cluster['quarter'] : '0');
             return $cluster;
         }, $clusters);
         
